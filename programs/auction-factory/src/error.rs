@@ -28,5 +28,7 @@ pub enum ErrorCode {
     NotEnoughSOL,
     #[msg("Token transfer failed")]
     TokenTransferFailed,
+    #[msg("GENERAL ERRROR")]
+    GeneralError,
 }
 // BidOnExpiredAuction

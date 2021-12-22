@@ -80,16 +80,16 @@ export const getTokenWallet = async (
 };
 
 export const createAssociatedTokenAccountInstruction = (
-    associatedTokenAddress: anchor.web3.PublicKey,
-    payer: anchor.web3.PublicKey,
-    walletAddress: anchor.web3.PublicKey,
-    splTokenMintAddress: anchor.web3.PublicKey
+    mint: PublicKey,
+    associatedAccount: PublicKey,
+    owner: PublicKey,
+    payer: PublicKey
 ) => {
-    const keys = [
+    let keys = [
         { pubkey: payer, isSigner: true, isWritable: true },
-        { pubkey: associatedTokenAddress, isSigner: false, isWritable: true },
-        { pubkey: walletAddress, isSigner: false, isWritable: false },
-        { pubkey: splTokenMintAddress, isSigner: false, isWritable: false },
+        { pubkey: associatedAccount, isSigner: false, isWritable: true },
+        { pubkey: owner, isSigner: false, isWritable: false },
+        { pubkey: mint, isSigner: false, isWritable: false },
         {
             pubkey: anchor.web3.SystemProgram.programId,
             isSigner: false,
@@ -105,7 +105,7 @@ export const createAssociatedTokenAccountInstruction = (
     return new anchor.web3.TransactionInstruction({
         keys,
         programId: SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
-        data: Buffer.from([]),
+        data: Buffer.alloc(0),
     });
 };
 
@@ -126,4 +126,20 @@ export const getAuctionFactoryAuthority = () => {
         [Buffer.from("authority")],
         AUX_FACTORY_PROGRAM_ID
     );
+};
+
+export const getAssociatedTokenAccountAddress = async (
+    owner: PublicKey,
+    mint: PublicKey
+) => {
+    return (
+        await PublicKey.findProgramAddress(
+            [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+            SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID
+        )
+    )[0];
+};
+
+export const getCardTokenAccount = (owner: PublicKey, cardMint: PublicKey) => {
+    return getAssociatedTokenAccountAddress(owner, cardMint);
 };

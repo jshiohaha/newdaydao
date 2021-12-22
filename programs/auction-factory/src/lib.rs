@@ -9,6 +9,8 @@ mod structs;
 mod util;
 mod verify;
 
+use solana_program::msg;
+
 use context::*;
 use error::ErrorCode;
 use structs::auction_factory::AuctionFactoryData;
@@ -75,6 +77,54 @@ pub mod auction_factory {
             &mut ctx.accounts.next_auction,
             &mut ctx.accounts.auction_factory,
         )?;
+
+        Ok(())
+    }
+
+    pub fn supply_resource_for_auction(ctx: Context<SupplyResource>) -> ProgramResult {
+        msg!("entry point");;
+
+        // TODO: CREATE ACCOUNT
+        // let seeds = &[LEADERBOARD_SEED, &[leaderboard_bump]];
+        // let _leaderboard = Pubkey::create_program_address(seeds, ctx.program_id).unwrap();
+        // let __anchor_rent = Rent::get()?;
+        // let lamports = __anchor_rent.minimum_balance(2653);
+        // anchor_lang::solana_program::program::invoke_signed(
+        //     &system_instruction::create_account(
+        //         &ctx.accounts.initializer.key(),
+        //         &_leaderboard,
+        //         lamports,
+        //         2653,
+        //         ctx.program_id,
+        //     ),
+        //     &[
+        //         ctx.accounts.initializer.to_account_info(),
+        //         ctx.accounts.leaderboard.to_account_info(),
+        //         ctx.accounts.system_program.to_account_info(),
+        //     ],
+        //     &[seeds],
+        // )
+
+        // TODO: createInitMintInstruction
+        
+        // TODO: createAssociatedTokenAccountInstruction
+
+        // TODO: MINT TO
+
+        // let seeds = &[
+        //     &AUX_SEED[..],
+        //     &[ctx.accounts.auction.bump]
+        // ];
+
+        // // msg!("mint_token_to_new_member");
+        // instructions::supply_resource::mint_token_to_new_member(&ctx, seeds)?;
+
+        // return Err(ErrorCode::GeneralError.into());
+
+        // msg!("create_token_metadata");
+        // instructions::supply_resource::create_token_metadata(&ctx, seeds)?;
+
+        msg!("done");
 
         Ok(())
     }
