@@ -1,7 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 
 export const AUX_FACTORY_PROGRAM_ID = new PublicKey(
-    "EBTuRco9ht6f2R27RGbKHVcoz31n3fMDHFSEvecibZDU"
+    "AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD"
 );
 
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(

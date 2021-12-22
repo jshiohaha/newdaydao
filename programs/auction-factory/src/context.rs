@@ -5,7 +5,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token;
 
 use crate::instructions::transfer::{TransferLamports, TransferTokens};
-use crate::instructions::manage_metadata::{CreateMetadataAccount}; // UpdateMetadataAccount, , CreateMasterEditionAccount};
+use crate::instructions::manage_metadata::{CreateMetadata, CreateMasterEdition}; // UpdateMetadataAccount,};
 
 #[derive(Accounts)]
 #[instruction(bump: u8, data: AuctionFactoryData)]
@@ -37,6 +37,8 @@ pub struct SupplyResource<'info> {
     pub payer: Signer<'info>,
     #[account(mut)]
     pub auction: Account<'info, Auction>,
+    #[account(mut)]
+    pub auction_factory: Account<'info, AuctionFactory>,
     // With the following accounts we aren't using anchor macros because they are CPI'd
     // through to token-metadata which will do all the validations we need on them.
 
@@ -57,9 +59,8 @@ pub struct SupplyResource<'info> {
         // constraint = mint_token_account.owner == auction.authority.key()
     )]
     pub mint_token_account: Account<'info, token::TokenAccount>,
-
-    #[account(address = spl_token_metadata::id())]
-    pub token_metadata_program: AccountInfo<'info>,
+    #[account(address = metaplex_token_metadata::id())]
+    pub token_metadata_program: UncheckedAccount<'info>,
     pub token_program: Program<'info, token::Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
@@ -96,8 +97,8 @@ pub struct SettleAuction<'info> {
     pub auction_factory: Account<'info, AuctionFactory>,
     #[account(mut)]
     pub auction: Account<'info, Auction>,
-    #[account(address = spl_token_metadata::id())]
-    pub token_metadata_program: AccountInfo<'info>,
+    #[account(address = metaplex_token_metadata::id())]
+    pub token_metadata_program: UncheckedAccount<'info>,
     pub token_program: Program<'info, token::Token>,
     pub system_program: Program<'info, System>,
 
@@ -193,39 +194,63 @@ impl<'info> SettleAuction<'info> {
     }
 }
 
-// impl<'info> SupplyResource<'info> {
+impl<'info> SupplyResource<'info> {
 
-//     pub fn into_mint_token_context(
-//         &self,
-//     ) -> CpiContext<'_, '_, '_, 'info, token::MintTo<'info>> {
-//         let cpi_program = self.token_program.to_account_info();
+    pub fn into_mint_token_context(
+        &self,
+    ) -> CpiContext<'_, '_, '_, 'info, token::MintTo<'info>> {
+        let cpi_program = self.token_program.to_account_info();
 
-//         let cpi_accounts = token::MintTo {
-//             mint: self.mint.to_account_info(),
-//             to: self.mint_token_account.to_account_info(),
-//             authority: self.auction.to_account_info(),
-//         };
+        let cpi_accounts = token::MintTo {
+            mint: self.mint.to_account_info(),
+            to: self.mint_token_account.to_account_info(),
+            authority: self.payer.to_account_info(),
+        };
 
-//         CpiContext::new(cpi_program, cpi_accounts)
-//     }
+        CpiContext::new(cpi_program, cpi_accounts)
+    }
 
-//     pub fn into_create_metadata_context(
-//         &self,
-//     ) -> CpiContext<'_, '_, '_, 'info, CreateMetadataAccount<'info>> {
-//         let cpi_program = self.token_metadata_program.to_account_info();
+    pub fn into_create_metadata_context(
+        &self,
+    ) -> CpiContext<'_, '_, '_, 'info, CreateMetadata<'info>> {
+        let cpi_program = self.token_metadata_program.to_account_info();
 
-//         let cpi_accounts = CreateMetadataAccount {
-//             payer: self.payer.to_account_info(), // auction?
-//             metadata: self.metadata.to_account_info(),
-//             mint: self.mint.to_account_info(),
-//             mint_authority: self.auction.to_account_info(),
-//             update_authority: self.auction.to_account_info(),
-//             token_metadata_program: self.token_metadata_program.to_account_info(),
-//             system_program: self.system_program.clone(),
-//             rent: self.rent.clone(),
-//         };
+        let cpi_accounts = CreateMetadata {
+            metadata: self.metadata.to_account_info(),
+            mint: self.mint.to_account_info(),
+            mint_authority: self.payer.to_account_info(),
+            payer: self.payer.to_account_info(),
+            update_authority: self.payer.to_account_info(),
+            token_metadata_program: self.token_metadata_program.clone(),
+            token_program: self.token_program.clone(),
+            system_program: self.system_program.clone(),
+            rent: self.rent.clone(),
+        };
 
-//         CpiContext::new(cpi_program, cpi_accounts)
-//     }
+        CpiContext::new(cpi_program, cpi_accounts)
+    }
 
-// }
+    pub fn into_create_master_edition_metadata_context(
+        &self,
+    ) -> CpiContext<'_, '_, '_, 'info, CreateMasterEdition<'info>> {
+        let cpi_program = self.token_metadata_program.to_account_info();
+
+        let cpi_accounts = CreateMasterEdition {
+            payer: self.payer.to_account_info(),
+            metadata: self.metadata.to_account_info(),
+            master_edition: self.master_edition.to_account_info(),
+            mint: self.mint.to_account_info(),
+            mint_authority: self.payer.to_account_info(),
+            update_authority: self.payer.to_account_info(),
+            token_metadata_program: self.token_metadata_program.clone(),
+            token_program: self.token_program.clone(),
+            system_program: self.system_program.clone(),
+            rent: self.rent.clone(),
+        };
+
+        CpiContext::new(cpi_program, cpi_accounts)
+    }
+
+    
+
+}

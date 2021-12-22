@@ -25,8 +25,8 @@ pub fn return_losing_bid_amount(
             ctx.accounts
                 .into_return_lamports_to_loser_context()
                 .with_signer(&[&[
-                        &AUX_SEED[..],
-                        &[auction.bump]
+                    &AUX_SEED[..],
+                    &[auction.bump]
                 ]]),
             auction.amount,
         )?;

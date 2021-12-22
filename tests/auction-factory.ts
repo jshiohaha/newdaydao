@@ -240,6 +240,7 @@ describe("auction factory", () => {
                 accounts: {
                     payer: payer,
                     auction: auctionAddress,
+                    auctionFactory: auctionFactoryAddress,
                     metadata,
                     masterEdition,
                     mint: mint.publicKey,
@@ -251,13 +252,22 @@ describe("auction factory", () => {
                 },
                 // TODO: figure out how to mint to the auction address PDA
                 instructions: [
-                    // Give authority enough to pay off the cost of the nft!
-                    // it'll be funnneled right back
+                    // // Give authority enough to pay off the cost of the nft!
+                    // // it'll be funnneled right back
                     // anchor.web3.SystemProgram.transfer({
                     //     fromPubkey: payer,
                     //     toPubkey: auctionAddress, // this.authority.publicKey,
                     //     lamports: 10000000, // add minting fees in there
                     // }),
+                    // // NOTE: can embed custom program instructions here... useful for creating
+                    // // a token account for the auction and then minting directly there?
+                    // // program.instruction.createLeaderboard(leaderboardBump, {
+                    // //     accounts: {
+                    // //     initializer: authority.publicKey,
+                    // //     leaderboard: leaderboard,
+                    // //     systemProgram: SystemProgram.programId,
+                    // //     },
+                    // // }),
                     //create token mint account for member card nft
                     anchor.web3.SystemProgram.createAccount({
                       fromPubkey: payer, // mintConfig.authority
@@ -284,14 +294,14 @@ describe("auction factory", () => {
                       payer, // owner
                       payer // payer
                     ),
-                    Token.createMintToInstruction(
-                        TOKEN_PROGRAM_ID,
-                        mint.publicKey,
-                        token,
-                        payer,
-                        [],
-                        1
-                      ),
+                    // Token.createMintToInstruction(
+                    //     TOKEN_PROGRAM_ID,
+                    //     mint.publicKey,
+                    //     token,
+                    //     payer,
+                    //     [],
+                    //     1
+                    //   ),
                 ],
                 signers: [mint], // TODO; myWallet?
             }

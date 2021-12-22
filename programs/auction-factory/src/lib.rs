@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("EBTuRco9ht6f2R27RGbKHVcoz31n3fMDHFSEvecibZDU");
+declare_id!("AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD");
 
 mod context;
 mod error;
@@ -18,7 +18,8 @@ use structs::auction_factory::AuctionFactoryData;
 // prefix used in PDA derivations to avoid collisions with other programs.
 const AUX_FACTORY_SEED: &[u8] = b"aux_fax";
 const AUX_SEED: &[u8] = b"aux";
-const AUX_FAX_PROGRAM_ID: &str = "EBTuRco9ht6f2R27RGbKHVcoz31n3fMDHFSEvecibZDU";
+const AUX_FAX_PROGRAM_ID: &str = "AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD";
+const PREFIX: &str = "aux";
 
 #[program]
 pub mod auction_factory {
@@ -49,6 +50,12 @@ pub mod auction_factory {
             ctx.accounts.auction_factory.authority.key(),
             ctx.accounts.auction.key(),
         )?;
+
+        // TODO: mint token directly to auction account
+        // ==> make create account for token instruction via rust (bc auction account needs to sign itself)
+        // ==> create normal ixs via typescript 
+        // ==> call create metadata and master edition metadata via rust
+        // ref: https://github.com/nateshirley/forum/blob/ad8904d6d1cf65e62dd2ce4f7594e6f4f4841ac3/programs/forum/src/ixns/create_leaderboard.rs#L9
 
         instructions::create_auction::create(
             bump,
@@ -82,47 +89,28 @@ pub mod auction_factory {
     }
 
     pub fn supply_resource_for_auction(ctx: Context<SupplyResource>) -> ProgramResult {
-        msg!("entry point");;
+        msg!("entry point");
 
-        // TODO: CREATE ACCOUNT
-        // let seeds = &[LEADERBOARD_SEED, &[leaderboard_bump]];
-        // let _leaderboard = Pubkey::create_program_address(seeds, ctx.program_id).unwrap();
-        // let __anchor_rent = Rent::get()?;
-        // let lamports = __anchor_rent.minimum_balance(2653);
-        // anchor_lang::solana_program::program::invoke_signed(
-        //     &system_instruction::create_account(
-        //         &ctx.accounts.initializer.key(),
-        //         &_leaderboard,
-        //         lamports,
-        //         2653,
-        //         ctx.program_id,
-        //     ),
-        //     &[
-        //         ctx.accounts.initializer.to_account_info(),
-        //         ctx.accounts.leaderboard.to_account_info(),
-        //         ctx.accounts.system_program.to_account_info(),
-        //     ],
-        //     &[seeds],
-        // )
+        // TODO: create instruction to create auction token account; then call the rest of the instructions
 
         // TODO: createInitMintInstruction
-        
         // TODO: createAssociatedTokenAccountInstruction
 
-        // TODO: MINT TO
+        // TODO: reformat these functions. like, ctx should take converted context directly.
+        instructions::supply_resource::mint_token(
+            &ctx,
+            // seeds
+        )?;
 
-        // let seeds = &[
-        //     &AUX_SEED[..],
-        //     &[ctx.accounts.auction.bump]
-        // ];
+        instructions::supply_resource::create_token_metadata(
+            &ctx,
+            // seeds
+        )?;
 
-        // // msg!("mint_token_to_new_member");
-        // instructions::supply_resource::mint_token_to_new_member(&ctx, seeds)?;
-
-        // return Err(ErrorCode::GeneralError.into());
-
-        // msg!("create_token_metadata");
-        // instructions::supply_resource::create_token_metadata(&ctx, seeds)?;
+        instructions::supply_resource::create_metadata_master_edition(
+            &ctx,
+            // seeds
+        )?;
 
         msg!("done");
 
