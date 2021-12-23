@@ -8,6 +8,8 @@ pub enum ErrorCode {
     UnexpectedActiveValue,
     #[msg("Auction is not in a state to perform such action.")]
     InactiveAuction,
+    #[msg("Auction resource can only be generated once.")]
+    AuctionResourceAlreadyExists,
     #[msg("Must settle any ongoing auction before creating a new auction.")]
     UnsettledAuction,
     #[msg("Bid must be a non-negative, non-zero amount. Bid must also beat previous bid by some percent.")]
@@ -31,4 +33,3 @@ pub enum ErrorCode {
     #[msg("GENERAL ERRROR")]
     GeneralError,
 }
-// BidOnExpiredAuction

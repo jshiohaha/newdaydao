@@ -1,25 +1,62 @@
+use {
+    anchor_lang::prelude::*,
+    anchor_spl::token::{Mint, MintTo, Token, TokenAccount},
+};
+
+use crate::instructions::create_master_edition::CreateMasterEdition;
+use crate::instructions::create_metadata::CreateMetadata;
+use crate::instructions::transfer::{TransferLamports, TransferTokens}; // UpdateMetadataAccount,}
 use crate::structs::auction::Auction;
 use crate::structs::auction_factory::{AuctionFactory, AuctionFactoryData};
 use crate::{AUX_FACTORY_SEED, AUX_SEED};
-use anchor_lang::prelude::*;
-use anchor_spl::token;
-
-use crate::instructions::transfer::{TransferLamports, TransferTokens};
-use crate::instructions::manage_metadata::{CreateMetadata, CreateMasterEdition}; // UpdateMetadataAccount,};
 
 #[derive(Accounts)]
 #[instruction(bump: u8, data: AuctionFactoryData)]
 pub struct InitializeAuctionFactory<'info> {
     pub payer: Signer<'info>,
     pub authority: AccountInfo<'info>,
+    pub treasury: AccountInfo<'info>,
     #[account(init, seeds = [AUX_FACTORY_SEED.as_ref(), authority.key().as_ref()], bump = bump, payer = payer, space = 1000)]
     pub auction_factory: Account<'info, AuctionFactory>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
+pub struct ModifyAuctionFactory<'info> {
+    pub payer: Signer<'info>,
+    #[account(mut)]
+    pub auction_factory: Account<'info, AuctionFactory>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateAuctionFactoryAuthority<'info> {
+    pub payer: Signer<'info>,
+    #[account(mut)]
+    pub auction_factory: Account<'info, AuctionFactory>,
+    pub authority: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateAuctionFactoryTreasury<'info> {
+    pub payer: Signer<'info>,
+    #[account(mut)]
+    pub auction_factory: Account<'info, AuctionFactory>,
+    pub treasury: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct CreateTokenMint<'info> {
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub token_mint_account: Account<'info, TokenAccount>,
+    pub auction: Account<'info, Auction>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
 #[instruction(bump: u8, sequence: u64)]
-pub struct InitializeAuction<'info> {
+pub struct CreateFirstAuction<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     #[account(mut)]
@@ -28,6 +65,21 @@ pub struct InitializeAuction<'info> {
     pub auction_factory: Account<'info, AuctionFactory>,
     #[account(init, seeds = [AUX_SEED.as_ref(), authority.key().as_ref(), sequence.to_string().as_ref()], bump = bump, payer = payer, space = 1000)]
     pub auction: Account<'info, Auction>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(bump: u8, sequence: u64)]
+pub struct CreateNextAuction<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(mut)]
+    pub authority: AccountInfo<'info>,
+    #[account(mut)]
+    pub auction_factory: Account<'info, AuctionFactory>,
+    pub current_auction: Account<'info, Auction>,
+    #[account(init, seeds = [AUX_SEED.as_ref(), authority.key().as_ref(), sequence.to_string().as_ref()], bump = bump, payer = payer, space = 1000)]
+    pub next_auction: Account<'info, Auction>,
     pub system_program: Program<'info, System>,
 }
 
@@ -36,19 +88,16 @@ pub struct SupplyResource<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     #[account(mut)]
-    pub auction: Account<'info, Auction>,
-    #[account(mut)]
     pub auction_factory: Account<'info, AuctionFactory>,
-    // With the following accounts we aren't using anchor macros because they are CPI'd
-    // through to token-metadata which will do all the validations we need on them.
-
+    #[account(mut)]
+    pub auction: Account<'info, Auction>,
     // #[account(
     //     constraint = mint.decimals == 0,
     //     constraint = mint.supply == 0,
-    //     // constraint = mint.freeze_authority.unwrap() == auction.authority.key(),
-    //     // constraint = mint.mint_authority.unwrap() == auction.authority.key(),
+    //     constraint = mint.freeze_authority.unwrap() == next_auction.key(),
+    //     constraint = mint.mint_authority.unwrap() == next_auction.key(),
     // )]
-    pub mint: Account<'info, token::Mint>,
+    pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub metadata: AccountInfo<'info>, // verified via cpi in the metadata program
     #[account(mut)]
@@ -56,35 +105,14 @@ pub struct SupplyResource<'info> {
     #[account(
         mut,
         // constraint = mint_token_account.amount == 0,
-        // constraint = mint_token_account.owner == auction.authority.key()
+        // constraint = mint_token_account.owner == next_auction.key()
     )]
-    pub mint_token_account: Account<'info, token::TokenAccount>,
+    pub mint_token_account: Account<'info, TokenAccount>,
     #[account(address = metaplex_token_metadata::id())]
     pub token_metadata_program: UncheckedAccount<'info>,
-    pub token_program: Program<'info, token::Token>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
-
-    // wallet is the destination of the token transfer
-    // https://github.com/metaplex-foundation/metaplex/blob/master/rust/nft-candy-machine/src/lib.rs#L73
-    // #[account(mut)]
-    // wallet: AccountInfo<'info>,
-}
-
-#[derive(Accounts)]
-#[instruction(bump: u8, sequence: u64)]
-pub struct CreateAuction<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    #[account(mut)]
-    pub authority: AccountInfo<'info>,
-    #[account(mut)]
-    pub auction_factory: Account<'info, AuctionFactory>,
-    #[account(mut)]
-    pub current_auction: Account<'info, Auction>,
-    #[account(init, seeds = [AUX_SEED.as_ref(), authority.key().as_ref(), sequence.to_string().as_ref()], bump = bump, payer = payer, space = 1000)]
-    pub next_auction: Account<'info, Auction>,
-    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -99,13 +127,9 @@ pub struct SettleAuction<'info> {
     pub auction: Account<'info, Auction>,
     #[account(address = metaplex_token_metadata::id())]
     pub token_metadata_program: UncheckedAccount<'info>,
-    pub token_program: Program<'info, token::Token>,
+    pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
-
-    pub authority: AccountInfo<'info>,
-
-    // TODO: verify this works? need to generate before calling this command
-    // also need to confirm this account exists
+    pub authority: AccountInfo<'info>, // (quest): is this used?
     pub bidder_token_account: AccountInfo<'info>,
     pub auction_token_account: AccountInfo<'info>,
 }
@@ -123,15 +147,21 @@ pub struct PlaceBid<'info> {
     pub system_program: Program<'info, System>,
 }
 
-#[derive(Accounts)]
-pub struct ModifyAuctionFactory<'info> {
-    #[account(mut)]
-    pub auction_factory: Account<'info, AuctionFactory>,
-    pub payer: Signer<'info>,
+impl<'info> CreateTokenMint<'info> {
+    pub fn into_mint_token_context(&self) -> CpiContext<'_, '_, '_, 'info, MintTo<'info>> {
+        let cpi_program = self.token_program.to_account_info();
+
+        let cpi_accounts = MintTo {
+            mint: self.mint.to_account_info(),
+            to: self.token_mint_account.to_account_info(),
+            authority: self.auction.to_account_info(),
+        };
+
+        CpiContext::new(cpi_program, cpi_accounts)
+    }
 }
 
 impl<'info> PlaceBid<'info> {
-
     pub fn into_receive_bid_context(
         &self,
     ) -> CpiContext<'_, '_, '_, 'info, TransferLamports<'info>> {
@@ -162,7 +192,6 @@ impl<'info> PlaceBid<'info> {
 }
 
 impl<'info> SettleAuction<'info> {
-
     pub fn into_transfer_lamports_to_treasury(
         &self,
     ) -> CpiContext<'_, '_, '_, 'info, TransferLamports<'info>> {
@@ -195,13 +224,10 @@ impl<'info> SettleAuction<'info> {
 }
 
 impl<'info> SupplyResource<'info> {
-
-    pub fn into_mint_token_context(
-        &self,
-    ) -> CpiContext<'_, '_, '_, 'info, token::MintTo<'info>> {
+    pub fn into_mint_token_context(&self) -> CpiContext<'_, '_, '_, 'info, MintTo<'info>> {
         let cpi_program = self.token_program.to_account_info();
 
-        let cpi_accounts = token::MintTo {
+        let cpi_accounts = MintTo {
             mint: self.mint.to_account_info(),
             to: self.mint_token_account.to_account_info(),
             authority: self.payer.to_account_info(),
@@ -250,7 +276,4 @@ impl<'info> SupplyResource<'info> {
 
         CpiContext::new(cpi_program, cpi_accounts)
     }
-
-    
-
 }

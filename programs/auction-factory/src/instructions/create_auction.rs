@@ -1,6 +1,9 @@
-use anchor_lang::prelude::*;
-use std::convert::TryFrom;
+use {
+    anchor_lang::prelude::*,
+    std::convert::TryFrom
+};
 
+// local imports
 use crate::structs::auction::Auction;
 use crate::structs::auction_factory::AuctionFactory;
 

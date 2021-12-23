@@ -17,9 +17,6 @@ pub fn return_losing_bid_amount(
     if auction.amount > auction_factory.data.min_reserve_price {
         assert!(auction.bidder.eq(ctx.accounts.bidder.key));
 
-        // #[account(init, seeds = [AUX_SEED.as_ref(), authority.key().as_ref(), sequence.to_string().as_ref()], bump = bump, payer = payer, space = 1000)]
-        // let seq = auction_factory.sequence.to_string();
-
         // https://github.com/metaplex-foundation/metaplex/blob/master/rust/nft-candy-machine/src/lib.rs#L109
         transfer_from_pda(
             ctx.accounts

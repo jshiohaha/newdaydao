@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 
 // use crate::error::ErrorCode;
-// use crate::instructions::manage_metadata::update_metadata;
 // use crate::instructions::transfer::{transfer_from_pda, transfer_spl_token_from_pda};
 // use crate::structs::auction::Auction;
 // use crate::structs::auction_factory::AuctionFactory;

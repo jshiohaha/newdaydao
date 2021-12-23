@@ -1,13 +1,14 @@
-use crate::structs::auction_factory::AuctionFactoryData;
-use crate::util::get_current_timestamp;
 use anchor_lang::prelude::*;
 
-// #[account]
-// #[derive(Default, Debug)]
+// local imports
+use crate::structs::auction_factory::AuctionFactoryData;
+use crate::util::get_current_timestamp;
+
 #[account]
 #[derive(Default)]
 pub struct Auction {
     pub bump: u8,
+    // index of auction managed by the auction factory, zero indexed 
     pub sequence: u64,
     // authority with permission to modify this auction
     pub authority: Pubkey,
@@ -25,10 +26,10 @@ pub struct Auction {
     pub bidder: Pubkey,
     // epoch time of the most recent bid was placed. used to keep track of auction timing.
     pub bid_time: u64,
+    // address of the resource being auctioned; should not be null.
+    pub resource: Option<Pubkey>,
 
-    // // token ID for the related NFT to be auctioned
-    // pub token_id: u64,
-    // // token mint address for the SPL token being used to bid; default to SOL
+    // token mint address for the SPL token being used to bid; default to SOL
     // pub token_mint: Option<Pubkey>,
 }
 
@@ -48,6 +49,11 @@ impl Auction {
         self.end_time = current_timestamp + factory_data.duration;
         self.settled = false;
         self.amount = 0;
+        self.resource = None;
+    }
+    
+    pub fn add_resource(&mut self, resource: Pubkey) {
+        self.resource = Some(resource);
     }
 
     pub fn settle(&mut self) {

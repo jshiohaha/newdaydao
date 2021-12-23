@@ -1,6 +1,4 @@
-use anchor_lang::prelude::*;
-
-declare_id!("AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD");
+use {anchor_lang::prelude::*, solana_program::msg};
 
 mod context;
 mod error;
@@ -9,17 +7,21 @@ mod structs;
 mod util;
 mod verify;
 
-use solana_program::msg;
-
 use context::*;
 use error::ErrorCode;
+use structs::auction::Auction;
 use structs::auction_factory::AuctionFactoryData;
+use structs::metadata::get_metadata_info;
+
+declare_id!("AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD");
 
 // prefix used in PDA derivations to avoid collisions with other programs.
 const AUX_FACTORY_SEED: &[u8] = b"aux_fax";
 const AUX_SEED: &[u8] = b"aux";
 const AUX_FAX_PROGRAM_ID: &str = "AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD";
-const PREFIX: &str = "aux";
+
+// ToggleAuctionFactory --> auction factory, authority is signer -> verify matches
+// ModifyAuctionFactoryData
 
 #[program]
 pub mod auction_factory {
@@ -30,32 +32,117 @@ pub mod auction_factory {
         bump: u8,
         data: AuctionFactoryData,
     ) -> ProgramResult {
-        ctx.accounts
-            .auction_factory
-            .init(bump, *ctx.accounts.authority.key, data);
+        ctx.accounts.auction_factory.init(
+            bump,
+            *ctx.accounts.authority.key,
+            *ctx.accounts.treasury.key,
+            data,
+        );
 
         Ok(())
     }
 
-    pub fn initialize_auction(
-        ctx: Context<InitializeAuction>,
+    pub fn toggle_auction_factory_status(ctx: Context<ModifyAuctionFactory>) -> ProgramResult {
+        verify::verify_auction_factory_authority(
+            *ctx.accounts.payer.key,
+            ctx.accounts.auction_factory.authority,
+        )?;
+
+        let auction_factory_status = ctx.accounts.auction_factory.is_active;
+        let auction_factory = &mut ctx.accounts.auction_factory;
+
+        if auction_factory_status {
+            msg!("Pausing auction factory");
+            auction_factory.pause();
+        } else {
+            msg!("Resuming auction factory");
+            auction_factory.resume();
+        }
+
+        Ok(())
+    }
+
+    pub fn modify_auction_factory_data(
+        ctx: Context<ModifyAuctionFactory>,
+        data: AuctionFactoryData,
+    ) -> ProgramResult {
+        verify::verify_auction_factory_authority(
+            *ctx.accounts.payer.key,
+            ctx.accounts.auction_factory.authority,
+        )?;
+
+        let auction_factory = &mut ctx.accounts.auction_factory;
+
+        auction_factory.update_data(data);
+
+        Ok(())
+    }
+
+    pub fn update_authority(ctx: Context<UpdateAuctionFactoryAuthority>) -> ProgramResult {
+        verify::verify_auction_factory_authority(
+            *ctx.accounts.payer.key,
+            ctx.accounts.auction_factory.authority,
+        )?;
+
+        let auction_factory = &mut ctx.accounts.auction_factory;
+
+        auction_factory.update_authority(*ctx.accounts.authority.key);
+
+        Ok(())
+    }
+
+    pub fn update_treasury(ctx: Context<UpdateAuctionFactoryTreasury>) -> ProgramResult {
+        verify::verify_auction_factory_authority(
+            *ctx.accounts.payer.key,
+            ctx.accounts.auction_factory.authority,
+        )?;
+
+        let auction_factory = &mut ctx.accounts.auction_factory;
+
+        auction_factory.update_treasury(*ctx.accounts.treasury.key);
+
+        Ok(())
+    }
+
+    pub fn transfer_lamports_to_treasury(ctx: Context<ModifyAuctionFactory>) -> ProgramResult {
+        verify::verify_auction_factory_authority(
+            *ctx.accounts.payer.key,
+            ctx.accounts.auction_factory.authority,
+        )?;
+
+        let auction_factory = &mut ctx.accounts.auction_factory;
+
+        // TODO: transfer lamports from auction_factory PDA to treasury.
+        // reminder: don't over-transfer & leave account empty so that garbage
+        // collector automatically closes the account.
+        // (quest): how to calculate number of lamports to transfer?
+
+        Ok(())
+    }
+
+    // only used as a custom mint_to instruction since the ixn requires the authority to sign
+    // in the case of no multisig. and, a PDA can only sign from an on-chain
+    // program. Token source: https://github.com/solana-labs/solana-program-library/blob/e29bc53c5f572073908fb89c6812d22f6f5eecf5/token/js/client/token.js#L1731
+    pub fn mint_to_auction(ctx: Context<CreateTokenMint>) -> ProgramResult {
+        instructions::mint_token::mint_to_auction(&ctx)?;
+
+        Ok(())
+    }
+
+    pub fn create_first_auction(
+        ctx: Context<CreateFirstAuction>,
         bump: u8,
-        _sequence: u64
+        _sequence: u64,
     ) -> ProgramResult {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
+
         verify::verify_auction_factory_for_first_auction(&ctx.accounts.auction_factory)?;
 
         verify::verify_auction_address_for_factory(
-            ctx.accounts.auction_factory.sequence,
+            ctx.accounts.auction_factory.get_current_sequence(),
             ctx.accounts.auction_factory.authority.key(),
             ctx.accounts.auction.key(),
         )?;
-
-        // TODO: mint token directly to auction account
-        // ==> make create account for token instruction via rust (bc auction account needs to sign itself)
-        // ==> create normal ixs via typescript 
-        // ==> call create metadata and master edition metadata via rust
-        // ref: https://github.com/nateshirley/forum/blob/ad8904d6d1cf65e62dd2ce4f7594e6f4f4841ac3/programs/forum/src/ixns/create_leaderboard.rs#L9
 
         instructions::create_auction::create(
             bump,
@@ -67,17 +154,20 @@ pub mod auction_factory {
     }
 
     pub fn create_next_auction(
-        ctx: Context<CreateAuction>,
+        ctx: Context<CreateNextAuction>,
         bump: u8,
-        _sequence: u64
+        _sequence: u64,
     ) -> ProgramResult {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
+
         verify::verify_auction_address_for_factory(
-            ctx.accounts.auction_factory.sequence,
+            ctx.accounts.auction_factory.get_current_sequence(),
             ctx.accounts.auction_factory.authority.key(),
             ctx.accounts.current_auction.key(),
         )?;
-        verify::verify_auction_is_settled(&ctx.accounts.current_auction)?;
+
+        // ensure settled auction before creating a new auction, if we are past the first auction
+        verify::verify_current_auction_is_over(&ctx.accounts.current_auction)?;
 
         instructions::create_auction::create(
             bump,
@@ -88,31 +178,79 @@ pub mod auction_factory {
         Ok(())
     }
 
-    pub fn supply_resource_for_auction(ctx: Context<SupplyResource>) -> ProgramResult {
-        msg!("entry point");
+    // should always call after first auction is initiated. otherwise, will throw an error.
+    pub fn supply_resource_to_auction(ctx: Context<SupplyResource>) -> ProgramResult {
+        let mut auction_factory_sequence = ctx.accounts.auction_factory.sequence;
 
-        // TODO: create instruction to create auction token account; then call the rest of the instructions
+        verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
-        // TODO: createInitMintInstruction
-        // TODO: createAssociatedTokenAccountInstruction
-
-        // TODO: reformat these functions. like, ctx should take converted context directly.
-        instructions::supply_resource::mint_token(
-            &ctx,
-            // seeds
+        verify::verify_auction_address_for_factory(
+            ctx.accounts.auction_factory.get_current_sequence(),
+            ctx.accounts.auction_factory.authority.key(),
+            ctx.accounts.auction.key(),
         )?;
 
-        instructions::supply_resource::create_token_metadata(
-            &ctx,
-            // seeds
+        verify::verify_auction_resource_dne(&ctx.accounts.auction)?;
+
+        // // creatotr is auction factory account since treasury can change.
+        // // we will include an on-chain function to dump lamports from auction
+        // // factory PDA to treasury.
+        // let metadata_info = get_metadata_info(ctx.accounts.auction_factory.key());
+
+        // let auction_seeds = &[&AUX_SEED[..], &[ctx.accounts.auction.bump]];
+        // instructions::create_metadata::create_metadata(
+        //     ctx.accounts
+        //         .into_create_metadata_context()
+        //         .with_signer(&[auction_seeds]),
+        //     metadata_info,
+        // )?;
+
+        // instructions::create_master_edition::create_master_edition_metadata(
+        //     ctx.accounts
+        //         .into_create_master_edition_metadata_context()
+        //         .with_signer(&[auction_seeds]),
+        // )?;
+
+        let auction = &mut ctx.accounts.auction;
+        auction.add_resource(ctx.accounts.mint.key());
+
+        Ok(())
+    }
+
+    pub fn place_bid(ctx: Context<PlaceBid>, amount: u64) -> ProgramResult {
+        verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
+
+        verify::verify_auction_address_for_factory(
+            ctx.accounts.auction_factory.get_current_sequence(),
+            ctx.accounts.auction_factory.authority.key(),
+            ctx.accounts.auction.key(),
         )?;
 
-        instructions::supply_resource::create_metadata_master_edition(
-            &ctx,
-            // seeds
+        verify::verify_bidder_has_sufficient_account_balance(
+            ctx.accounts.bidder.to_account_info(),
+            amount
         )?;
 
-        msg!("done");
+        verify::verify_bidder_not_already_winning(
+            ctx.accounts.auction.bidder,
+            ctx.accounts.bidder.key(),
+        )?;
+
+        verify::verify_bid_for_auction(
+            &ctx.accounts.auction_factory,
+            &ctx.accounts.auction,
+            amount,
+        )?;
+
+        instructions::place_bid::transfer_bid_amount(&ctx, amount)?;
+
+        instructions::place_bid::return_losing_bid_amount(&ctx)?;
+
+        instructions::place_bid::place(
+            amount,
+            ctx.accounts.bidder.key(),
+            &mut ctx.accounts.auction,
+        )?;
 
         Ok(())
     }
@@ -126,9 +264,7 @@ pub mod auction_factory {
         )?;
         verify::verify_auction_is_active(&ctx.accounts.auction)?;
 
-        instructions::settle_auction::settle(
-            &ctx,
-        )?;
+        instructions::settle_auction::settle(&ctx)?;
 
         // update metadata account upon auction over
         // https://github.com/metaplex-foundation/metaplex/blob/master/rust/nft-candy-machine/src/lib.rs#L197-L212
@@ -137,67 +273,6 @@ pub mod auction_factory {
         // instructions::settle_auction::transfer_resource_to_winner(
         //     &ctx,
         // );
-
-        Ok(())
-    }
-
-    pub fn place_bid(ctx: Context<PlaceBid>, amount: u64) -> ProgramResult {
-        verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
-        
-        // ?quest: is checking for auction != settled & (current_time >= start_time && current_time <= end_time) sufficient
-        // this is done in verify_bid_for_auction()
-        // verify::verify_auction_address_for_factory(
-        //     ctx.accounts.auction_factory.sequence,
-        //     ctx.accounts.auction_factory.authority.key(),
-        //     ctx.accounts.auction.key(),
-        // )?;
-
-        verify::verify_bidder_not_already_winning(
-            ctx.accounts.auction.bidder,
-            ctx.accounts.bidder.key(),
-        )?;
-
-        // verify bidder has enough SOL to pay for bid
-        // if ctx.accounts.payer.lamports() < amount {
-        //     return Err(ErrorCode::NotEnoughSOL.into());
-        // }
-
-        verify::verify_bid_for_auction(
-            &ctx.accounts.auction_factory,
-            &ctx.accounts.auction,
-            amount,
-        )?;
-
-        instructions::place_bid::transfer_bid_amount(
-            &ctx,
-            amount,
-        )?;
-
-        instructions::place_bid::return_losing_bid_amount(
-            &ctx,
-        )?;
-
-        instructions::place_bid::place(
-            amount,
-            ctx.accounts.bidder.key(),
-            &mut ctx.accounts.auction,
-        )?;
-
-        Ok(())
-    }
-
-    pub fn modify_auction_factory(
-        ctx: Context<ModifyAuctionFactory>,
-    ) -> ProgramResult {
-        let auction_factory = &mut ctx.accounts.auction_factory;
-
-        // restrict who can modify the auction factory
-        if *ctx.accounts.payer.key != auction_factory.authority {
-            return Err(ErrorCode::NotAuthorized.into());
-        }
-
-        auction_factory
-            .resume();
 
         Ok(())
     }

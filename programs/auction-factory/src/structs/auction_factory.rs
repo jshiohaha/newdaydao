@@ -1,14 +1,9 @@
-// use crate::structs::auction::Auction;
-use crate::util::get_current_timestamp;
 use anchor_lang::prelude::*;
 
-#[account]
-#[derive(Default)]
-pub struct AuctionFactoryAuthority {
-    pub bump: u8,
-}
+// local imports
+use crate::util::get_current_timestamp;
 
-// ?quest: what do all the derive params mean. i.e. PartialEq, Debug
+// (quest): what do all the derive params mean. i.e. PartialEq, Debug
 #[repr(C)]
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Debug)]
 pub struct AuctionFactoryData {
@@ -20,10 +15,6 @@ pub struct AuctionFactoryData {
     pub min_reserve_price: u64,
     // duration of a single auction, in seconds
     pub duration: u64,
-    // NFT contract address, custom version of candy machine 🍬
-    // pub nft_contract: PublicKey,
-    // mint address of the auction's payment
-    // pub payment_mint: PublicKey,
 }
 
 #[account]
@@ -45,15 +36,25 @@ pub struct AuctionFactory {
     // should be the same as initialized_at unless the auction factory is paused and
     // later resumed.
     pub active_since: u64,
+    // address of the auction factory's treasury. post auction settlement, the winning bid
+    // amount will be transferred here.
+    pub treasury: Pubkey,
 }
 
 impl AuctionFactory {
-    pub fn init(&mut self, bump: u8, authority: Pubkey, data: AuctionFactoryData) {
+    pub fn init(
+        &mut self,
+        bump: u8,
+        authority: Pubkey,
+        treasury: Pubkey,
+        data: AuctionFactoryData,
+    ) {
         let current_timestamp = get_current_timestamp().unwrap();
 
         self.bump = bump;
         self.sequence = 0;
         self.authority = authority;
+        self.treasury = treasury;
         self.is_active = false;
         self.data = data;
 
@@ -72,8 +73,32 @@ impl AuctionFactory {
         self.active_since = current_timestamp;
     }
 
+    // increment sequence when a new auction is created,
+    // so current auction sequence is actually
+    // seq = 0: 0
+    // seq > 0: seq-1
+    pub fn get_current_sequence(&mut self) -> u64 {
+        if self.sequence > 0 {
+            return self.sequence.checked_sub(1).unwrap();
+        }
+
+        return self.sequence;
+    }
+
     pub fn increment_sequence(&mut self) {
         let updated_sequence = self.sequence + 1;
         self.sequence = updated_sequence;
+    }
+
+    pub fn update_authority(&mut self, authority: Pubkey) {
+        self.authority = authority;
+    }
+
+    pub fn update_treasury(&mut self, treasury: Pubkey) {
+        self.treasury = treasury;
+    }
+
+    pub fn update_data(&mut self, data: AuctionFactoryData) {
+        self.data = data;
     }
 }

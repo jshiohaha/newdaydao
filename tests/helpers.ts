@@ -1,9 +1,10 @@
 import { PublicKey } from "@solana/web3.js";
+import { Program } from "@project-serum/anchor";
 import * as anchor from "@project-serum/anchor";
 import IDL from "../target/idl/auction_factory.json";
 import { AuctionFactory } from "../target/types/auction_factory";
 
-import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID, Token, MintLayout } from "@solana/spl-token";
 
 import {
     AUX_FACTORY_PROGRAM_ID,
@@ -12,6 +13,9 @@ import {
     TOKEN_METADATA_PROGRAM_ID,
     SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
 } from "./utils";
+
+import { AuctionFactory as AuctionFactoryProgram } from "../target/types/auction_factory";
+
 
 export const getAuctionFactoryAccountAddress = async (
     authority: anchor.web3.PublicKey
@@ -143,3 +147,64 @@ export const getAssociatedTokenAccountAddress = async (
 export const getCardTokenAccount = (owner: PublicKey, cardMint: PublicKey) => {
     return getAssociatedTokenAccountAddress(owner, cardMint);
 };
+
+
+export const generate_mint_ixns = async (
+    program: Program<AuctionFactoryProgram>,
+    payer: anchor.web3.PublicKey,
+    mint: anchor.web3.PublicKey,
+    token_account: anchor.web3.PublicKey,
+    owner: anchor.web3.PublicKey,
+) => {
+    return [
+        anchor.web3.SystemProgram.createAccount({
+            fromPubkey: payer, // mintConfig.authority
+            newAccountPubkey: mint,
+            space: MintLayout.span,
+            lamports:
+                await program.provider.connection.getMinimumBalanceForRentExemption(
+                    MintLayout.span
+                ),
+            programId: TOKEN_PROGRAM_ID,
+        }),
+        //init the mint
+        Token.createInitMintInstruction(
+            TOKEN_PROGRAM_ID,
+            mint,
+            0,
+            owner,
+            owner
+        ),
+        // create token account for new member card
+        createAssociatedTokenAccountInstruction(
+            mint,
+            token_account,
+            owner, // owner
+            payer // payer
+        ),
+        program.instruction.mintToAuction({
+            accounts: {
+                auction: owner,
+                mint: mint,
+                tokenMintAccount: token_account,
+                tokenProgram: TOKEN_PROGRAM_ID,
+            },
+        }),
+    ];
+}
+
+export const generate_mint_accounts = async (
+    auction: anchor.web3.PublicKey,
+) => {
+    const mint = anchor.web3.Keypair.generate();
+    const metadata = await getMetadata(mint.publicKey);
+    const masterEdition = await getMasterEdition(mint.publicKey);
+    const tokenAccount = await getCardTokenAccount(auction, mint.publicKey);
+
+    return {
+        mint,
+        metadata,
+        masterEdition,
+        tokenAccount
+    }
+}

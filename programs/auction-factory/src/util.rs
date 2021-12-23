@@ -1,6 +1,5 @@
 use {
     anchor_lang::prelude::*,
-    // crate::error::ErrorCode,
     crate::{AUX_FAX_PROGRAM_ID, AUX_SEED},
     solana_program::{
         account_info::AccountInfo,
