@@ -5,7 +5,8 @@ use {
 
 use crate::instructions::create_master_edition::CreateMasterEdition;
 use crate::instructions::create_metadata::CreateMetadata;
-use crate::instructions::transfer::{TransferLamports, TransferTokens}; // UpdateMetadataAccount,}
+use crate::instructions::update_metadata::UpdateMetadata;
+use crate::instructions::transfer::{TransferLamports};
 use crate::structs::auction::Auction;
 use crate::structs::auction_factory::{AuctionFactory, AuctionFactoryData};
 use crate::{AUX_FACTORY_SEED, AUX_SEED};
@@ -16,6 +17,7 @@ pub struct InitializeAuctionFactory<'info> {
     pub payer: Signer<'info>,
     pub authority: AccountInfo<'info>,
     pub treasury: AccountInfo<'info>,
+    // TODO: provide more accurate account size
     #[account(init, seeds = [AUX_FACTORY_SEED.as_ref(), authority.key().as_ref()], bump = bump, payer = payer, space = 1000)]
     pub auction_factory: Account<'info, AuctionFactory>,
     pub system_program: Program<'info, System>,
@@ -55,7 +57,7 @@ pub struct CreateTokenMint<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(bump: u8, sequence: u64)]
+#[instruction(auction_bump: u8, sequence: u64)]
 pub struct CreateFirstAuction<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -63,13 +65,14 @@ pub struct CreateFirstAuction<'info> {
     pub authority: AccountInfo<'info>,
     #[account(mut)]
     pub auction_factory: Account<'info, AuctionFactory>,
-    #[account(init, seeds = [AUX_SEED.as_ref(), authority.key().as_ref(), sequence.to_string().as_ref()], bump = bump, payer = payer, space = 1000)]
+    // TODO: better calculate space
+    #[account(init, seeds = [AUX_SEED.as_ref(), authority.key().as_ref(), sequence.to_string().as_ref()], bump = auction_bump, payer = payer, space = 1000)]
     pub auction: Account<'info, Auction>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
-#[instruction(bump: u8, sequence: u64)]
+#[instruction(auction_bump: u8, sequence: u64)]
 pub struct CreateNextAuction<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -78,7 +81,7 @@ pub struct CreateNextAuction<'info> {
     #[account(mut)]
     pub auction_factory: Account<'info, AuctionFactory>,
     pub current_auction: Account<'info, Auction>,
-    #[account(init, seeds = [AUX_SEED.as_ref(), authority.key().as_ref(), sequence.to_string().as_ref()], bump = bump, payer = payer, space = 1000)]
+    #[account(init, seeds = [AUX_SEED.as_ref(), authority.key().as_ref(), sequence.to_string().as_ref()], bump = auction_bump, payer = payer, space = 1000)]
     pub next_auction: Account<'info, Auction>,
     pub system_program: Program<'info, System>,
 }
@@ -116,30 +119,41 @@ pub struct SupplyResource<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(auction_token_account_bump: u8, bidder_token_account_bump: u8)]
 pub struct SettleAuction<'info> {
     pub payer: Signer<'info>,
+    #[account(mut)]
     pub treasury: AccountInfo<'info>,
     #[account(mut)]
     pub metadata: AccountInfo<'info>,
     #[account(mut)]
     pub auction_factory: Account<'info, AuctionFactory>,
-    #[account(mut)]
+    #[account(
+        mut,
+        // seeds = [A_AUX_HOUSE_SEED],
+        // bump = artifact_auction_house_bump
+    )]
     pub auction: Account<'info, Auction>,
+    #[account(mut)]
+    pub auction_info: AccountInfo<'info>,
     #[account(address = metaplex_token_metadata::id())]
     pub token_metadata_program: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
-    pub authority: AccountInfo<'info>, // (quest): is this used?
+
+    #[account(mut)]
     pub bidder_token_account: AccountInfo<'info>,
+    #[account(mut)]
     pub auction_token_account: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
 #[instruction(amount: u64)]
 pub struct PlaceBid<'info> {
-    pub leading_bidder: AccountInfo<'info>,
     #[account(mut)]
     pub bidder: Signer<'info>,
+    #[account(mut)]
+    pub leading_bidder: AccountInfo<'info>,
     #[account(mut)]
     pub auction_factory: Account<'info, AuctionFactory>,
     #[account(mut)]
@@ -175,47 +189,36 @@ impl<'info> PlaceBid<'info> {
 
         CpiContext::new(cpi_program, cpi_accounts)
     }
-
-    pub fn into_return_lamports_to_loser_context(
-        &self,
-    ) -> CpiContext<'_, '_, '_, 'info, TransferLamports<'info>> {
-        let cpi_program = self.system_program.to_account_info();
-
-        let cpi_accounts = TransferLamports {
-            from: self.auction.to_account_info(),
-            to: self.leading_bidder.to_account_info(),
-            system_program: self.system_program.clone(),
-        };
-
-        CpiContext::new(cpi_program, cpi_accounts)
-    }
 }
 
 impl<'info> SettleAuction<'info> {
-    pub fn into_transfer_lamports_to_treasury(
+
+    // // TODO: double check this works?? who is authority??
+    // pub fn into_transfer_resource_to_winner_context(
+    //     &self,
+    // ) -> CpiContext<'_, '_, '_, 'info, TransferTokens<'info>> {
+    //     let cpi_program = self.token_program.to_account_info();
+
+    //     let cpi_accounts = TransferTokens {
+    //         from: self.auction_token_account.to_account_info(),
+    //         to: self.bidder_token_account.to_account_info(),
+    //         owner: self.auction.to_account_info(),
+    //         token_program: self.token_program.to_account_info(),
+    //         // system_program: self.system_program.clone(),
+    //     };
+
+    //     CpiContext::new(cpi_program, cpi_accounts)
+    // }
+
+    pub fn into_update_metadata_authority(
         &self,
-    ) -> CpiContext<'_, '_, '_, 'info, TransferLamports<'info>> {
-        let cpi_program = self.system_program.to_account_info();
+    ) -> CpiContext<'_, '_, '_, 'info, UpdateMetadata<'info>> {
+        let cpi_program = self.token_metadata_program.to_account_info();
 
-        let cpi_accounts = TransferLamports {
-            from: self.auction.to_account_info(),
-            to: self.treasury.to_account_info(),
-            system_program: self.system_program.clone(),
-        };
-
-        CpiContext::new(cpi_program, cpi_accounts)
-    }
-
-    pub fn into_transfer_resource_to_winner_context(
-        &self,
-    ) -> CpiContext<'_, '_, '_, 'info, TransferTokens<'info>> {
-        let cpi_program = self.system_program.to_account_info();
-
-        let cpi_accounts = TransferTokens {
-            from: self.auction_token_account.to_account_info(),
-            to: self.bidder_token_account.to_account_info(), // bidder token account
-            authority: self.authority.to_account_info(),
-            token_program: self.token_program.to_account_info(),
+        let cpi_accounts = UpdateMetadata {
+            metadata: self.metadata.to_account_info(),
+            update_authority: self.auction.to_account_info(),
+            token_metadata_program: self.token_metadata_program.to_account_info(),
             system_program: self.system_program.clone(),
         };
 
@@ -230,12 +233,13 @@ impl<'info> SupplyResource<'info> {
         let cpi_accounts = MintTo {
             mint: self.mint.to_account_info(),
             to: self.mint_token_account.to_account_info(),
-            authority: self.payer.to_account_info(),
+            authority: self.auction.to_account_info(),
         };
 
         CpiContext::new(cpi_program, cpi_accounts)
     }
 
+    // TODO: metadata authorities auction??
     pub fn into_create_metadata_context(
         &self,
     ) -> CpiContext<'_, '_, '_, 'info, CreateMetadata<'info>> {
@@ -244,9 +248,9 @@ impl<'info> SupplyResource<'info> {
         let cpi_accounts = CreateMetadata {
             metadata: self.metadata.to_account_info(),
             mint: self.mint.to_account_info(),
-            mint_authority: self.payer.to_account_info(),
+            mint_authority: self.auction.to_account_info(),
             payer: self.payer.to_account_info(),
-            update_authority: self.payer.to_account_info(),
+            update_authority: self.auction.to_account_info(),
             token_metadata_program: self.token_metadata_program.clone(),
             token_program: self.token_program.clone(),
             system_program: self.system_program.clone(),
@@ -266,8 +270,8 @@ impl<'info> SupplyResource<'info> {
             metadata: self.metadata.to_account_info(),
             master_edition: self.master_edition.to_account_info(),
             mint: self.mint.to_account_info(),
-            mint_authority: self.payer.to_account_info(),
-            update_authority: self.payer.to_account_info(),
+            mint_authority: self.auction.to_account_info(),
+            update_authority: self.auction.to_account_info(),
             token_metadata_program: self.token_metadata_program.clone(),
             token_program: self.token_program.clone(),
             system_program: self.system_program.clone(),

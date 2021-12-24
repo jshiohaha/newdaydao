@@ -10,7 +10,7 @@ mod verify;
 use context::*;
 use error::ErrorCode;
 use structs::auction::Auction;
-use structs::auction_factory::AuctionFactoryData;
+use structs::auction_factory::{AuctionFactory, AuctionFactoryData};
 use structs::metadata::get_metadata_info;
 
 declare_id!("AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD");
@@ -19,6 +19,8 @@ declare_id!("AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD");
 const AUX_FACTORY_SEED: &[u8] = b"aux_fax";
 const AUX_SEED: &[u8] = b"aux";
 const AUX_FAX_PROGRAM_ID: &str = "AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD";
+const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID: &str =
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
 
 // ToggleAuctionFactory --> auction factory, authority is signer -> verify matches
 // ModifyAuctionFactoryData
@@ -97,6 +99,8 @@ pub mod auction_factory {
             ctx.accounts.auction_factory.authority,
         )?;
 
+        // TODO: verify treasury account is initliazed
+
         let auction_factory = &mut ctx.accounts.auction_factory;
 
         auction_factory.update_treasury(*ctx.accounts.treasury.key);
@@ -131,7 +135,7 @@ pub mod auction_factory {
 
     pub fn create_first_auction(
         ctx: Context<CreateFirstAuction>,
-        bump: u8,
+        auction_bump: u8,
         _sequence: u64,
     ) -> ProgramResult {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
@@ -145,7 +149,7 @@ pub mod auction_factory {
         )?;
 
         instructions::create_auction::create(
-            bump,
+            auction_bump,
             &mut ctx.accounts.auction,
             &mut ctx.accounts.auction_factory,
         )?;
@@ -155,7 +159,7 @@ pub mod auction_factory {
 
     pub fn create_next_auction(
         ctx: Context<CreateNextAuction>,
-        bump: u8,
+        auction_bump: u8,
         _sequence: u64,
     ) -> ProgramResult {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
@@ -170,7 +174,7 @@ pub mod auction_factory {
         verify::verify_current_auction_is_over(&ctx.accounts.current_auction)?;
 
         instructions::create_auction::create(
-            bump,
+            auction_bump,
             &mut ctx.accounts.next_auction,
             &mut ctx.accounts.auction_factory,
         )?;
@@ -180,7 +184,7 @@ pub mod auction_factory {
 
     // should always call after first auction is initiated. otherwise, will throw an error.
     pub fn supply_resource_to_auction(ctx: Context<SupplyResource>) -> ProgramResult {
-        let mut auction_factory_sequence = ctx.accounts.auction_factory.sequence;
+        let auction_factory_sequence = ctx.accounts.auction_factory.sequence;
 
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
@@ -228,7 +232,7 @@ pub mod auction_factory {
 
         verify::verify_bidder_has_sufficient_account_balance(
             ctx.accounts.bidder.to_account_info(),
-            amount
+            amount,
         )?;
 
         verify::verify_bidder_not_already_winning(
@@ -255,24 +259,46 @@ pub mod auction_factory {
         Ok(())
     }
 
-    pub fn settle_auction(ctx: Context<SettleAuction>) -> ProgramResult {
-        verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
+    pub fn settle_auction(
+        ctx: Context<SettleAuction>,
+        auction_token_account_bump: u8,
+        bidder_account_bump: u8,
+    ) -> ProgramResult {
+        // we don't check if auction factory is active here because
+        // we should be able to settle any ongoing auction even if
+        // auction factory is paused.
+
+        let winning_bid_amount = ctx.accounts.auction.amount;
+
         verify::verify_auction_address_for_factory(
-            ctx.accounts.auction_factory.sequence,
+            ctx.accounts.auction_factory.get_current_sequence(),
             ctx.accounts.auction_factory.authority.key(),
             ctx.accounts.auction.key(),
         )?;
-        verify::verify_auction_is_active(&ctx.accounts.auction)?;
 
-        instructions::settle_auction::settle(&ctx)?;
+        verify::verify_auction_can_be_settled(&ctx.accounts.auction)?;
 
-        // update metadata account upon auction over
-        // https://github.com/metaplex-foundation/metaplex/blob/master/rust/nft-candy-machine/src/lib.rs#L197-L212
-        // https://github.com/metaplex-foundation/metaplex/blob/626d15d82be241931425cf0b11105dbf25bc9ef8/rust/token-metadata/program/src/instruction.rs#L289
+        verify::verify_treasury(&ctx.accounts.auction_factory, ctx.accounts.treasury.key())?;
 
-        // instructions::settle_auction::transfer_resource_to_winner(
-        //     &ctx,
+        verify::verify_bidder_token_account(
+            ctx.accounts.bidder_token_account.to_account_info(),
+            &ctx.accounts.auction,
+            bidder_account_bump,
+        )?;
+
+        // update token metadata so that primary_sale_happened = true
+        // instructions::update_metadata::update_metadata(
+        //     ctx.accounts
+        //         .into_update_metadata_authority()
+        //         .with_signer(&[seed]),
+        //     None,       // update authority stays the same
+        //     None,       // no Data change
+        //     Some(true), // primary_sale_happened
         // );
+
+        instructions::settle_auction::settle(
+            ctx
+        )?;
 
         Ok(())
     }

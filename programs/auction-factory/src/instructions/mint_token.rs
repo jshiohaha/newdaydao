@@ -10,6 +10,8 @@ use crate::AUX_SEED;
 pub fn mint_to_auction(
     ctx: &Context<CreateTokenMint>,
 ) -> ProgramResult {
+    // TODO: do checks on token account?
+    
     let authority_key = ctx.accounts.auction.authority.key();
     let seq: String = ctx.accounts.auction.sequence.to_string();
     let bump = ctx.accounts.auction.bump;

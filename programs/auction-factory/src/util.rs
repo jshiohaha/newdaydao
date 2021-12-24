@@ -1,11 +1,11 @@
 use {
     anchor_lang::prelude::*,
-    crate::{AUX_FAX_PROGRAM_ID, AUX_SEED},
     solana_program::{
         account_info::AccountInfo,
         msg,
         program::{invoke, invoke_signed},
         program_error::ProgramError,
+        program_pack::{IsInitialized, Pack},
         pubkey::Pubkey,
         system_instruction,
         sysvar::{rent::Rent},
@@ -15,7 +15,9 @@ use {
     std::str::FromStr,
 };
 
-#[inline(always)]
+use crate::{AUX_FAX_PROGRAM_ID, AUX_SEED};
+use crate::error::ErrorCode;
+
 pub fn create_or_allocate_account_raw<'a>(
     program_id: Pubkey,
     new_account_info: &AccountInfo<'a>,
@@ -61,7 +63,6 @@ pub fn create_or_allocate_account_raw<'a>(
     Ok(())
 }
 
-#[inline(always)]
 pub fn get_auction_account_address(
     sequence: u64,
     auction_factory: Pubkey,
@@ -74,8 +75,26 @@ pub fn get_auction_account_address(
     return Pubkey::find_program_address(seeds, &program_id);
 }
 
-#[inline(always)]
 pub fn get_current_timestamp() -> Result<u64, ProgramError> {
     let clock = Clock::get()?;
     return Ok(u64::try_from(clock.unix_timestamp).unwrap());
+}
+
+pub fn assert_initialized<T: Pack + IsInitialized>(
+    account_info: &AccountInfo,
+) -> Result<T, ProgramError> {
+    let account: T = T::unpack_unchecked(&account_info.data.borrow())?;
+    if !account.is_initialized() {
+        Err(ErrorCode::Uninitialized.into())
+    } else {
+        Ok(account)
+    }
+}
+
+pub fn assert_owned_by(account: &AccountInfo, owner: &Pubkey) -> ProgramResult {
+    if account.owner != owner {
+        Err(ErrorCode::IncorrectOwner.into())
+    } else {
+        Ok(())
+    }
 }

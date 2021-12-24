@@ -13,4 +13,5 @@ export const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID = new PublicKey(
 );
 
 export const AUX_SEED = "aux";
+export const AUX_TREASURY_SEED = "treasury";
 export const AUX_FAX_SEED = "aux_fax";
