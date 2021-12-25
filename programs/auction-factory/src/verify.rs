@@ -17,7 +17,7 @@ pub fn verify_auction_address_for_factory(
     // grab the derived current auction address and verify it matches the supplied address
     let (current_auction_address, _bump) = get_auction_account_address(sequence, auction_factory);
 
-    // TODO: use create public key from seed
+    // TODO: use create public key from seed. should be cheaper.
     if current_auction != current_auction_address {
         return Err(ErrorCode::AuctionAddressMismatch.into());
     }
@@ -196,11 +196,11 @@ pub fn get_token_mint_account(
     return Pubkey::create_program_address(seeds, &associated_token_program_id).unwrap();
 }
 
-// assert that
-// > dest token account is initialized
-// > account is owned by the spl_token program
+// assert that bidder token account
+// > is initialized
+// > is owned by the spl_token program
 // > mint matches the auction's resource
-// > token account address matches expected address
+// > address matches the expected address
 pub fn verify_bidder_token_account(
     bidder_token_account: AccountInfo,
     auction: &Account<Auction>,

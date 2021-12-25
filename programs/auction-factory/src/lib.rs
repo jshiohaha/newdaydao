@@ -36,7 +36,7 @@ pub mod auction_factory {
     ) -> ProgramResult {
         ctx.accounts.auction_factory.init(
             bump,
-            *ctx.accounts.authority.key,
+            *ctx.accounts.payer.key,
             *ctx.accounts.treasury.key,
             data,
         );
@@ -44,7 +44,10 @@ pub mod auction_factory {
         Ok(())
     }
 
-    pub fn toggle_auction_factory_status(ctx: Context<ModifyAuctionFactory>) -> ProgramResult {
+    pub fn toggle_auction_factory_status(
+        ctx: Context<ModifyAuctionFactory>,
+        _bump: u8,
+    ) -> ProgramResult {
         verify::verify_auction_factory_authority(
             *ctx.accounts.payer.key,
             ctx.accounts.auction_factory.authority,
@@ -66,6 +69,7 @@ pub mod auction_factory {
 
     pub fn modify_auction_factory_data(
         ctx: Context<ModifyAuctionFactory>,
+        _bump: u8,
         data: AuctionFactoryData,
     ) -> ProgramResult {
         verify::verify_auction_factory_authority(
@@ -80,7 +84,10 @@ pub mod auction_factory {
         Ok(())
     }
 
-    pub fn update_authority(ctx: Context<UpdateAuctionFactoryAuthority>) -> ProgramResult {
+    pub fn update_authority(
+        ctx: Context<UpdateAuctionFactoryAuthority>,
+        _bump: u8,
+    ) -> ProgramResult {
         verify::verify_auction_factory_authority(
             *ctx.accounts.payer.key,
             ctx.accounts.auction_factory.authority,
@@ -88,18 +95,19 @@ pub mod auction_factory {
 
         let auction_factory = &mut ctx.accounts.auction_factory;
 
-        auction_factory.update_authority(*ctx.accounts.authority.key);
+        auction_factory.update_authority(*ctx.accounts.new_authority.key);
 
         Ok(())
     }
 
-    pub fn update_treasury(ctx: Context<UpdateAuctionFactoryTreasury>) -> ProgramResult {
+    pub fn update_treasury(ctx: Context<UpdateAuctionFactoryTreasury>, _bump: u8) -> ProgramResult {
         verify::verify_auction_factory_authority(
             *ctx.accounts.payer.key,
             ctx.accounts.auction_factory.authority,
         )?;
 
-        // TODO: verify treasury account is initliazed
+        // (quest): can we check that a treasury account exists?
+        // if not, treasury funds will be lost again until updated.
 
         let auction_factory = &mut ctx.accounts.auction_factory;
 
@@ -108,7 +116,10 @@ pub mod auction_factory {
         Ok(())
     }
 
-    pub fn transfer_lamports_to_treasury(ctx: Context<ModifyAuctionFactory>) -> ProgramResult {
+    // auction factory will be the creator of all NFTs and thus receive any secondary royalties.
+    // we need this functionality to extract royalties from the auction factory
+    // to the designated treasury.
+    pub fn transfer_lamports_to_treasury(ctx: Context<ModifyAuctionFactory>, _bump: u8) -> ProgramResult {
         verify::verify_auction_factory_authority(
             *ctx.accounts.payer.key,
             ctx.accounts.auction_factory.authority,
@@ -127,7 +138,12 @@ pub mod auction_factory {
     // only used as a custom mint_to instruction since the ixn requires the authority to sign
     // in the case of no multisig. and, a PDA can only sign from an on-chain
     // program. Token source: https://github.com/solana-labs/solana-program-library/blob/e29bc53c5f572073908fb89c6812d22f6f5eecf5/token/js/client/token.js#L1731
-    pub fn mint_to_auction(ctx: Context<CreateTokenMint>) -> ProgramResult {
+    pub fn mint_to_auction(
+        ctx: Context<CreateTokenMint>,
+        _auction_factory_bump: u8,
+        _auction_bump: u8,
+        _sequence: u64
+    ) -> ProgramResult {
         instructions::mint_token::mint_to_auction(&ctx)?;
 
         Ok(())
@@ -135,8 +151,9 @@ pub mod auction_factory {
 
     pub fn create_first_auction(
         ctx: Context<CreateFirstAuction>,
+        _auction_factory_bump: u8,
         auction_bump: u8,
-        _sequence: u64,
+        _sequence: u64
     ) -> ProgramResult {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
@@ -159,8 +176,11 @@ pub mod auction_factory {
 
     pub fn create_next_auction(
         ctx: Context<CreateNextAuction>,
-        auction_bump: u8,
-        _sequence: u64,
+        _auction_factory_bump: u8,
+        _current_auction_bump: u8,
+        next_auction_bump: u8,
+        _current_seq: u64,
+        _next_seq: u64
     ) -> ProgramResult {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
@@ -174,7 +194,7 @@ pub mod auction_factory {
         verify::verify_current_auction_is_over(&ctx.accounts.current_auction)?;
 
         instructions::create_auction::create(
-            auction_bump,
+            next_auction_bump,
             &mut ctx.accounts.next_auction,
             &mut ctx.accounts.auction_factory,
         )?;
@@ -183,7 +203,12 @@ pub mod auction_factory {
     }
 
     // should always call after first auction is initiated. otherwise, will throw an error.
-    pub fn supply_resource_to_auction(ctx: Context<SupplyResource>) -> ProgramResult {
+    pub fn supply_resource_to_auction(
+        ctx: Context<SupplyResource>,
+        _auction_factory_bump: u8,
+        _auction_bump: u8,
+        _sequence: u64
+) -> ProgramResult {
         let auction_factory_sequence = ctx.accounts.auction_factory.sequence;
 
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
@@ -221,7 +246,13 @@ pub mod auction_factory {
         Ok(())
     }
 
-    pub fn place_bid(ctx: Context<PlaceBid>, amount: u64) -> ProgramResult {
+    pub fn place_bid(
+        ctx: Context<PlaceBid>,
+        _auction_factory_bump: u8,
+        _auction_bump: u8,
+        _sequence: u64,
+        amount: u64
+    ) -> ProgramResult {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
         verify::verify_auction_address_for_factory(
@@ -261,8 +292,10 @@ pub mod auction_factory {
 
     pub fn settle_auction(
         ctx: Context<SettleAuction>,
-        auction_token_account_bump: u8,
         bidder_account_bump: u8,
+        _auction_factory_bump: u8,
+        _auction_bump: u8,
+        _sequence: u64
     ) -> ProgramResult {
         // we don't check if auction factory is active here because
         // we should be able to settle any ongoing auction even if
@@ -296,9 +329,7 @@ pub mod auction_factory {
         //     Some(true), // primary_sale_happened
         // );
 
-        instructions::settle_auction::settle(
-            ctx
-        )?;
+        instructions::settle_auction::settle(ctx)?;
 
         Ok(())
     }

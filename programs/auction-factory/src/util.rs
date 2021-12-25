@@ -63,6 +63,7 @@ pub fn create_or_allocate_account_raw<'a>(
     Ok(())
 }
 
+// return Pubkey::create_program_address(seeds, &associated_token_program_id).unwrap();
 pub fn get_auction_account_address(
     sequence: u64,
     auction_factory: Pubkey,

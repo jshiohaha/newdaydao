@@ -12,14 +12,14 @@ import {
     AUX_FAX_SEED,
     TOKEN_METADATA_PROGRAM_ID,
     SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
-    AUX_TREASURY_SEED
+    AUX_TREASURY_SEED,
 } from "./utils";
 
 import { AuctionFactory as AuctionFactoryProgram } from "../target/types/auction_factory";
 
 export const sleep = (ms: number) => {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
+    return new Promise((resolve) => setTimeout(resolve, ms));
+};
 
 export const getAuctionFactoryAccountAddress = async (
     authority: anchor.web3.PublicKey
@@ -143,13 +143,15 @@ export const getAssociatedTokenAccountAddress = async (
     return await PublicKey.findProgramAddress(
         [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
         SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID
-    )
+    );
 };
 
-export const getTokenMintAccount = async (owner: PublicKey, cardMint: PublicKey) => {
+export const getTokenMintAccount = async (
+    owner: PublicKey,
+    cardMint: PublicKey
+) => {
     return await getAssociatedTokenAccountAddress(owner, cardMint);
 };
-
 
 export const generate_mint_ixns = async (
     program: Program<AuctionFactoryProgram>,
@@ -157,6 +159,12 @@ export const generate_mint_ixns = async (
     mint: anchor.web3.PublicKey,
     token_account: anchor.web3.PublicKey,
     owner: anchor.web3.PublicKey,
+    auctionFactoryAddress: anchor.web3.PublicKey,
+    auctionFactoryBump: any,
+    afAuthority: anchor.web3.PublicKey,
+    afSequence: number,
+    auctionAddress: anchor.web3.PublicKey,
+    auctionBump: any
 ) => {
     return [
         anchor.web3.SystemProgram.createAccount({
@@ -184,33 +192,41 @@ export const generate_mint_ixns = async (
             owner, // owner
             payer // payer
         ),
-        program.instruction.mintToAuction({
+        program.instruction.mintToAuction(
+            auctionFactoryBump,
+            auctionBump,
+            new anchor.BN(afSequence), {
             accounts: {
-                auction: owner,
                 mint: mint,
+                authority: afAuthority,
                 tokenMintAccount: token_account,
+                auctionFactory: auctionFactoryAddress,
+                auction: auctionAddress,
                 tokenProgram: TOKEN_PROGRAM_ID,
             },
         }),
     ];
-}
+};
 
 export const generate_mint_accounts = async (
-    auction: anchor.web3.PublicKey,
+    auction: anchor.web3.PublicKey
 ) => {
     const mint = anchor.web3.Keypair.generate();
     const metadata = await getMetadata(mint.publicKey);
     const masterEdition = await getMasterEdition(mint.publicKey);
-    const [tokenAccount, bump] = await getTokenMintAccount(auction, mint.publicKey);
+    const [tokenAccount, bump] = await getTokenMintAccount(
+        auction,
+        mint.publicKey
+    );
 
     return {
         mint,
         metadata,
         masterEdition,
         tokenAccount,
-        tokenAccountBump: bump
-    }
-}
+        tokenAccountBump: bump,
+    };
+};
 
 export const getAuctionTreasuryAddress = async (
     auction: anchor.web3.PublicKey,
@@ -220,8 +236,19 @@ export const getAuctionTreasuryAddress = async (
         [
             anchor.utils.bytes.utf8.encode(AUX_TREASURY_SEED),
             auction.toBytes(),
-            auctionFactory.toBytes()
+            auctionFactory.toBytes(),
         ],
         AUX_FACTORY_PROGRAM_ID
     );
+};
+
+export const getCurrentAuctionFactorySequence = async (
+    program: Program<AuctionFactoryProgram>,
+    auctionFactoryAddress: anchor.web3.PublicKey
+) => {
+    const auctionFactoryAccount = await program.account.auctionFactory.fetch(
+        auctionFactoryAddress
+    );
+
+    return Math.max(auctionFactoryAccount.sequence.toNumber() - 1, 0);
 };
