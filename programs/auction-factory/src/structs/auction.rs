@@ -1,8 +1,10 @@
 use anchor_lang::prelude::*;
 
 // local imports
-use crate::structs::auction_factory::AuctionFactoryData;
-use crate::util::get_current_timestamp;
+use crate::{
+    structs::auction_factory::AuctionFactoryData,
+    util::get_current_timestamp
+};
 
 #[account]
 #[derive(Default)]

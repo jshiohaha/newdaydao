@@ -50,4 +50,8 @@ pub enum ErrorCode {
     NumericalOverflowError,
     #[msg("Insufficient account balance!")]
     InsufficientAccountBalance,
+    #[msg("Wrong settle auction endpoint!")]
+    WrongSettleAuctionEndpoint,
+    #[msg("Must supply resource to auction before settling!")]
+    AuctionHasNoResourceAvailable,
 }

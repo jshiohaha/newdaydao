@@ -1,14 +1,17 @@
 use {
     anchor_lang::prelude::*,
-    anchor_spl::token::{Mint, MintTo, Token, TokenAccount},
+    anchor_spl::token::{Burn, CloseAccount, Mint, MintTo, Token, TokenAccount},
 };
 
-use crate::instructions::create_master_edition::CreateMasterEdition;
-use crate::instructions::create_metadata::CreateMetadata;
-use crate::instructions::transfer::TransferLamports;
-use crate::instructions::update_metadata::UpdateMetadata;
-use crate::structs::auction::Auction;
-use crate::structs::auction_factory::{AuctionFactory, AuctionFactoryData};
+use crate::{
+    instructions::create_master_edition::CreateMasterEdition,
+    instructions::create_metadata::CreateMetadata,
+    instructions::transfer::TransferLamports,
+    instructions::update_metadata::UpdateMetadata,
+    structs::auction::Auction,
+    structs::auction_factory::{AuctionFactory, AuctionFactoryData},
+};
+
 use crate::{AUX_FACTORY_SEED, AUX_SEED};
 
 // TODO: provide more accurate account size (for all space = 1000 ... instances)
@@ -45,7 +48,7 @@ pub struct ModifyAuctionFactory<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(bump: u8, data: AuctionFactoryData)]
+#[instruction(bump: u8)]
 pub struct UpdateAuctionFactoryAuthority<'info> {
     pub payer: Signer<'info>,
     pub new_authority: AccountInfo<'info>,
@@ -245,8 +248,6 @@ pub struct SupplyResource<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-// TODO ====================================================
-
 #[derive(Accounts)]
 #[instruction(
     auction_factory_bump: u8,
@@ -312,6 +313,11 @@ pub struct SettleAuction<'info> {
         bump = auction_bump
     )]
     pub auction: Account<'info, Auction>,
+    #[account(
+        constraint = mint.decimals == 0,
+        constraint = mint.supply == 1,
+    )]
+    pub mint: Account<'info, Mint>,
     #[account(mut)]
     pub treasury: AccountInfo<'info>,
     #[account(mut)]
@@ -325,6 +331,8 @@ pub struct SettleAuction<'info> {
     #[account(address = spl_token::id())]
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
+    // #[account(mut)]
+    // pub token_burn_address: Account<'info, TokenAccount>,
 }
 
 // ================ IMPL FOR CPI CONTEXT ================
@@ -360,16 +368,26 @@ impl<'info> PlaceBid<'info> {
 }
 
 impl<'info> SettleAuction<'info> {
-    pub fn into_update_metadata_authority(
-        &self,
-    ) -> CpiContext<'_, '_, '_, 'info, UpdateMetadata<'info>> {
-        let cpi_program = self.token_metadata_program.to_account_info();
+    pub fn into_close_account_context(&self) -> CpiContext<'_, '_, '_, 'info, CloseAccount<'info>> {
+        let cpi_program = self.token_program.to_account_info();
 
-        let cpi_accounts = UpdateMetadata {
-            metadata: self.metadata.to_account_info(),
-            update_authority: self.auction.to_account_info(),
-            token_metadata_program: self.token_metadata_program.to_account_info(),
-            system_program: self.system_program.clone(),
+        let cpi_accounts = CloseAccount {
+            account: self.auction_token_account.to_account_info(),
+            // send rent lamports to treasury
+            destination: self.treasury.to_account_info(),
+            authority: self.authority.to_account_info(),
+        };
+
+        CpiContext::new(cpi_program, cpi_accounts)
+    }
+
+    pub fn into_burn_token_context(&self) -> CpiContext<'_, '_, '_, 'info, Burn<'info>> {
+        let cpi_program = self.token_program.to_account_info();
+
+        let cpi_accounts = Burn {
+            mint: self.mint.to_account_info(),
+            to: self.bidder_token_account.to_account_info(),
+            authority: self.authority.to_account_info(),
         };
 
         CpiContext::new(cpi_program, cpi_accounts)
@@ -425,6 +443,20 @@ impl<'info> SupplyResource<'info> {
             token_program: self.token_program.clone(),
             system_program: self.system_program.clone(),
             rent: self.rent.clone(),
+        };
+
+        CpiContext::new(cpi_program, cpi_accounts)
+    }
+
+    pub fn into_update_metadata_authority(
+        &self,
+    ) -> CpiContext<'_, '_, '_, 'info, UpdateMetadata<'info>> {
+        let cpi_program = self.token_metadata_program.to_account_info();
+
+        let cpi_accounts = UpdateMetadata {
+            metadata: self.metadata.to_account_info(),
+            update_authority: self.auction.to_account_info(),
+            token_metadata_program: self.token_metadata_program.to_account_info(),
         };
 
         CpiContext::new(cpi_program, cpi_accounts)

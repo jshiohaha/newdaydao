@@ -1,8 +1,12 @@
-import { PublicKey } from "@solana/web3.js";
-import { Program } from "@project-serum/anchor";
 import * as anchor from "@project-serum/anchor";
-import IDL from "../target/idl/auction_factory.json";
-import { AuctionFactory } from "../target/types/auction_factory";
+import {
+    PublicKey,
+    SystemProgram,
+    TransactionInstruction,
+    Keypair,
+    SYSVAR_RENT_PUBKEY
+} from "@solana/web3.js";
+import { Program } from "@project-serum/anchor";
 
 import { TOKEN_PROGRAM_ID, Token, MintLayout } from "@solana/spl-token";
 
@@ -12,7 +16,6 @@ import {
     AUX_FAX_SEED,
     TOKEN_METADATA_PROGRAM_ID,
     SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
-    AUX_TREASURY_SEED,
 } from "./utils";
 
 import { AuctionFactory as AuctionFactoryProgram } from "../target/types/auction_factory";
@@ -21,9 +24,7 @@ export const sleep = (ms: number) => {
     return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-export const getAuctionFactoryAccountAddress = async (
-    authority: anchor.web3.PublicKey
-) => {
+export const getAuctionFactoryAccountAddress = async (authority: PublicKey) => {
     return await PublicKey.findProgramAddress(
         [anchor.utils.bytes.utf8.encode(AUX_FAX_SEED), authority.toBytes()],
         AUX_FACTORY_PROGRAM_ID
@@ -32,7 +33,7 @@ export const getAuctionFactoryAccountAddress = async (
 
 export const getAuctionAccountAddress = async (
     sequence: number,
-    authority: anchor.web3.PublicKey
+    authority: PublicKey
 ) => {
     return await PublicKey.findProgramAddress(
         [
@@ -44,11 +45,9 @@ export const getAuctionAccountAddress = async (
     );
 };
 
-export const getMasterEdition = async (
-    mint: anchor.web3.PublicKey
-): Promise<anchor.web3.PublicKey> => {
+export const getMasterEdition = async (mint: PublicKey): Promise<PublicKey> => {
     return (
-        await anchor.web3.PublicKey.findProgramAddress(
+        await PublicKey.findProgramAddress(
             [
                 anchor.utils.bytes.utf8.encode("metadata"),
                 TOKEN_METADATA_PROGRAM_ID.toBuffer(),
@@ -60,11 +59,9 @@ export const getMasterEdition = async (
     )[0];
 };
 
-export const getMetadata = async (
-    mint: anchor.web3.PublicKey
-): Promise<anchor.web3.PublicKey> => {
+export const getMetadata = async (mint: PublicKey): Promise<PublicKey> => {
     return (
-        await anchor.web3.PublicKey.findProgramAddress(
+        await PublicKey.findProgramAddress(
             [
                 anchor.utils.bytes.utf8.encode("metadata"),
                 TOKEN_METADATA_PROGRAM_ID.toBuffer(),
@@ -75,12 +72,9 @@ export const getMetadata = async (
     )[0];
 };
 
-export const getTokenWallet = async (
-    wallet: anchor.web3.PublicKey,
-    mint: anchor.web3.PublicKey
-) => {
+export const getTokenWallet = async (wallet: PublicKey, mint: PublicKey) => {
     return (
-        await anchor.web3.PublicKey.findProgramAddress(
+        await PublicKey.findProgramAddress(
             [wallet.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
             SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID
         )
@@ -99,18 +93,18 @@ export const createAssociatedTokenAccountInstruction = (
         { pubkey: owner, isSigner: false, isWritable: false },
         { pubkey: mint, isSigner: false, isWritable: false },
         {
-            pubkey: anchor.web3.SystemProgram.programId,
+            pubkey: SystemProgram.programId,
             isSigner: false,
             isWritable: false,
         },
         { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
         {
-            pubkey: anchor.web3.SYSVAR_RENT_PUBKEY,
+            pubkey: SYSVAR_RENT_PUBKEY,
             isSigner: false,
             isWritable: false,
         },
     ];
-    return new anchor.web3.TransactionInstruction({
+    return new TransactionInstruction({
         keys,
         programId: SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
         data: Buffer.alloc(0),
@@ -118,16 +112,6 @@ export const createAssociatedTokenAccountInstruction = (
 };
 
 ////////
-
-export const getAuthorAccount = async (user: PublicKey) => {
-    const [authorAccount, bump] =
-        await anchor.web3.PublicKey.findProgramAddress(
-            [anchor.utils.bytes.utf8.encode("author"), user.toBytes()],
-            AUX_FACTORY_PROGRAM_ID
-        );
-
-    return { bump, authorAccount };
-};
 
 export const getAuctionFactoryAuthority = () => {
     return PublicKey.findProgramAddress(
@@ -155,19 +139,19 @@ export const getTokenMintAccount = async (
 
 export const generate_mint_ixns = async (
     program: Program<AuctionFactoryProgram>,
-    payer: anchor.web3.PublicKey,
-    mint: anchor.web3.PublicKey,
-    token_account: anchor.web3.PublicKey,
-    owner: anchor.web3.PublicKey,
-    auctionFactoryAddress: anchor.web3.PublicKey,
+    payer: PublicKey,
+    mint: PublicKey,
+    token_account: PublicKey,
+    owner: PublicKey,
+    auctionFactoryAddress: PublicKey,
     auctionFactoryBump: any,
-    afAuthority: anchor.web3.PublicKey,
+    afAuthority: PublicKey,
     afSequence: number,
-    auctionAddress: anchor.web3.PublicKey,
+    auctionAddress: PublicKey,
     auctionBump: any
 ) => {
     return [
-        anchor.web3.SystemProgram.createAccount({
+        SystemProgram.createAccount({
             fromPubkey: payer, // mintConfig.authority
             newAccountPubkey: mint,
             space: MintLayout.span,
@@ -195,23 +179,23 @@ export const generate_mint_ixns = async (
         program.instruction.mintToAuction(
             auctionFactoryBump,
             auctionBump,
-            new anchor.BN(afSequence), {
-            accounts: {
-                mint: mint,
-                authority: afAuthority,
-                tokenMintAccount: token_account,
-                auctionFactory: auctionFactoryAddress,
-                auction: auctionAddress,
-                tokenProgram: TOKEN_PROGRAM_ID,
-            },
-        }),
+            new anchor.BN(afSequence),
+            {
+                accounts: {
+                    mint: mint,
+                    authority: afAuthority,
+                    tokenMintAccount: token_account,
+                    auctionFactory: auctionFactoryAddress,
+                    auction: auctionAddress,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                },
+            }
+        ),
     ];
 };
 
-export const generate_mint_accounts = async (
-    auction: anchor.web3.PublicKey
-) => {
-    const mint = anchor.web3.Keypair.generate();
+export const generate_mint_accounts = async (auction: PublicKey) => {
+    const mint = Keypair.generate();
     const metadata = await getMetadata(mint.publicKey);
     const masterEdition = await getMasterEdition(mint.publicKey);
     const [tokenAccount, bump] = await getTokenMintAccount(
@@ -228,23 +212,9 @@ export const generate_mint_accounts = async (
     };
 };
 
-export const getAuctionTreasuryAddress = async (
-    auction: anchor.web3.PublicKey,
-    auctionFactory: anchor.web3.PublicKey
-) => {
-    return await PublicKey.findProgramAddress(
-        [
-            anchor.utils.bytes.utf8.encode(AUX_TREASURY_SEED),
-            auction.toBytes(),
-            auctionFactory.toBytes(),
-        ],
-        AUX_FACTORY_PROGRAM_ID
-    );
-};
-
 export const getCurrentAuctionFactorySequence = async (
     program: Program<AuctionFactoryProgram>,
-    auctionFactoryAddress: anchor.web3.PublicKey
+    auctionFactoryAddress: PublicKey
 ) => {
     const auctionFactoryAccount = await program.account.auctionFactory.fetch(
         auctionFactoryAddress

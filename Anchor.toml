@@ -1,11 +1,11 @@
-[programs.localnet]
-auction_factory = "AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD"
+[programs.devnet]
+auction_factory = "44viVLXpTZ5qTdtHDN59iYLABZUaw8EBwnTN4ygehukp"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "/Users/jacobshiohira/.config/solana/id.json"
 
 [scripts]

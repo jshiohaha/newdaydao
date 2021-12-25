@@ -31,9 +31,8 @@ pub struct CreateMetadata<'info> {
 
 pub fn create_metadata<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, CreateMetadata<'info>>,
-    metadata_info: MetadataInfo
+    metadata_info: MetadataInfo,
 ) -> ProgramResult {
-
     msg!("Invoking create metadata CPI call");
 
     invoke_signed(

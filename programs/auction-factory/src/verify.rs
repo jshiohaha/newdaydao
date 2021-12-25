@@ -1,13 +1,15 @@
 use anchor_lang::prelude::*;
 use std::str::FromStr;
 
-use crate::error::ErrorCode;
-use crate::structs::auction::Auction;
-use crate::structs::auction_factory::AuctionFactory;
-use crate::util::{
-    assert_initialized, assert_owned_by, get_auction_account_address, get_current_timestamp,
+use crate::{
+    SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
+    error::ErrorCode,
+    structs::auction::Auction,
+    structs::auction_factory::AuctionFactory,
+    util::{
+        assert_initialized, assert_owned_by, get_auction_account_address, get_current_timestamp,
+    }
 };
-use crate::SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID;
 
 pub fn verify_auction_address_for_factory(
     sequence: u64,
@@ -23,6 +25,15 @@ pub fn verify_auction_address_for_factory(
     }
 
     Ok(())
+}
+
+pub fn verify_auction_has_resource(auction: &Account<Auction>) -> ProgramResult {
+    match auction.resource {
+        None => {
+            return Err(ErrorCode::AuctionHasNoResourceAvailable.into());
+        }
+        Some(_) => Ok(())
+    }
 }
 
 pub fn verify_current_auction_is_over(auction: &Account<Auction>) -> ProgramResult {
@@ -53,7 +64,7 @@ pub fn verify_auction_can_be_settled(auction: &Account<Auction>) -> ProgramResul
 pub fn verify_auction_resource_dne(auction: &Account<Auction>) -> ProgramResult {
     match auction.resource {
         None => Ok(()),
-        Some(val) => {
+        Some(_) => {
             return Err(ErrorCode::AuctionResourceAlreadyExists.into());
         }
     }

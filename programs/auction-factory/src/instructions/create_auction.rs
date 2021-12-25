@@ -4,8 +4,10 @@ use {
 };
 
 // local imports
-use crate::structs::auction::Auction;
-use crate::structs::auction_factory::AuctionFactory;
+use crate::{
+    structs::auction::Auction,
+    structs::auction_factory::AuctionFactory
+};
 
 pub fn create(
     bump: u8,

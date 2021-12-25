@@ -55,7 +55,7 @@ pub fn create_master_edition_metadata<'a, 'b, 'c, 'info>(
             ctx.accounts.token_program.to_account_info(),
             ctx.accounts.system_program.to_account_info(),
             ctx.accounts.rent.to_account_info(),
-            ctx.accounts.update_authority.to_account_info(), // prev: candy_machine.to_account_info()
+            ctx.accounts.update_authority.to_account_info(),
         ],
         ctx.signer_seeds,
     )?;

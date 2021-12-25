@@ -8,22 +8,17 @@ mod util;
 mod verify;
 
 use context::*;
-use error::ErrorCode;
-use structs::auction::Auction;
-use structs::auction_factory::{AuctionFactory, AuctionFactoryData};
+use structs::auction_factory::AuctionFactoryData;
 use structs::metadata::get_metadata_info;
 
-declare_id!("AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD");
+declare_id!("44viVLXpTZ5qTdtHDN59iYLABZUaw8EBwnTN4ygehukp");
 
-// prefix used in PDA derivations to avoid collisions with other programs.
+// prefixes used in PDA derivations to avoid collisions with other programs.
 const AUX_FACTORY_SEED: &[u8] = b"aux_fax";
 const AUX_SEED: &[u8] = b"aux";
-const AUX_FAX_PROGRAM_ID: &str = "AmLmnFHadSevcarXPbh2a8hF9v4yTJ5gUmDwZoo42RsD";
+const AUX_FAX_PROGRAM_ID: &str = "44viVLXpTZ5qTdtHDN59iYLABZUaw8EBwnTN4ygehukp";
 const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID: &str =
     "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
-
-// ToggleAuctionFactory --> auction factory, authority is signer -> verify matches
-// ModifyAuctionFactoryData
 
 #[program]
 pub mod auction_factory {
@@ -119,13 +114,14 @@ pub mod auction_factory {
     // auction factory will be the creator of all NFTs and thus receive any secondary royalties.
     // we need this functionality to extract royalties from the auction factory
     // to the designated treasury.
-    pub fn transfer_lamports_to_treasury(ctx: Context<ModifyAuctionFactory>, _bump: u8) -> ProgramResult {
+    pub fn transfer_lamports_to_treasury(
+        ctx: Context<ModifyAuctionFactory>,
+        _bump: u8,
+    ) -> ProgramResult {
         verify::verify_auction_factory_authority(
             *ctx.accounts.payer.key,
             ctx.accounts.auction_factory.authority,
         )?;
-
-        let auction_factory = &mut ctx.accounts.auction_factory;
 
         // TODO: transfer lamports from auction_factory PDA to treasury.
         // reminder: don't over-transfer & leave account empty so that garbage
@@ -142,7 +138,7 @@ pub mod auction_factory {
         ctx: Context<CreateTokenMint>,
         _auction_factory_bump: u8,
         _auction_bump: u8,
-        _sequence: u64
+        _sequence: u64,
     ) -> ProgramResult {
         instructions::mint_token::mint_to_auction(&ctx)?;
 
@@ -153,7 +149,7 @@ pub mod auction_factory {
         ctx: Context<CreateFirstAuction>,
         _auction_factory_bump: u8,
         auction_bump: u8,
-        _sequence: u64
+        _sequence: u64,
     ) -> ProgramResult {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
@@ -180,7 +176,7 @@ pub mod auction_factory {
         _current_auction_bump: u8,
         next_auction_bump: u8,
         _current_seq: u64,
-        _next_seq: u64
+        _next_seq: u64,
     ) -> ProgramResult {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
@@ -202,15 +198,12 @@ pub mod auction_factory {
         Ok(())
     }
 
-    // should always call after first auction is initiated. otherwise, will throw an error.
     pub fn supply_resource_to_auction(
         ctx: Context<SupplyResource>,
         _auction_factory_bump: u8,
         _auction_bump: u8,
-        _sequence: u64
-) -> ProgramResult {
-        let auction_factory_sequence = ctx.accounts.auction_factory.sequence;
-
+        _sequence: u64,
+    ) -> ProgramResult {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
         verify::verify_auction_address_for_factory(
@@ -221,27 +214,46 @@ pub mod auction_factory {
 
         verify::verify_auction_resource_dne(&ctx.accounts.auction)?;
 
-        // // creatotr is auction factory account since treasury can change.
-        // // we will include an on-chain function to dump lamports from auction
-        // // factory PDA to treasury.
-        // let metadata_info = get_metadata_info(ctx.accounts.auction_factory.key());
+        // creators will be auction & auction factory account for purposes of secondary
+        // royalties since treasury can change. we will include an on-chain function to dump
+        // lamports from auction factory PDA to treasury.
+        let metadata_info = get_metadata_info(
+            ctx.accounts.auction.key(),
+            ctx.accounts.auction_factory.key(),
+        );
 
-        // let auction_seeds = &[&AUX_SEED[..], &[ctx.accounts.auction.bump]];
-        // instructions::create_metadata::create_metadata(
-        //     ctx.accounts
-        //         .into_create_metadata_context()
-        //         .with_signer(&[auction_seeds]),
-        //     metadata_info,
-        // )?;
+        let authority_key = ctx.accounts.auction.authority.key();
+        let sequence = ctx.accounts.auction.sequence.to_string();
+        let bump = ctx.accounts.auction.bump;
 
-        // instructions::create_master_edition::create_master_edition_metadata(
-        //     ctx.accounts
-        //         .into_create_master_edition_metadata_context()
-        //         .with_signer(&[auction_seeds]),
-        // )?;
+        let seeds = &[
+            AUX_SEED.as_ref(),
+            authority_key.as_ref(),
+            sequence.as_ref(),
+            &[bump],
+        ];
 
-        let auction = &mut ctx.accounts.auction;
-        auction.add_resource(ctx.accounts.mint.key());
+        instructions::create_metadata::create_metadata(
+            ctx.accounts
+                .into_create_metadata_context()
+                .with_signer(&[seeds]),
+            metadata_info,
+        )?;
+
+        instructions::create_master_edition::create_master_edition_metadata(
+            ctx.accounts
+                .into_create_master_edition_metadata_context()
+                .with_signer(&[seeds]),
+        )?;
+
+        // update token metadata so that primary_sale_happened = true
+        instructions::update_metadata::update_metadata_after_primary_sale(
+            ctx.accounts
+                .into_update_metadata_authority()
+                .with_signer(&[seeds]),
+        )?;
+
+        ctx.accounts.auction.add_resource(ctx.accounts.mint.key());
 
         Ok(())
     }
@@ -251,7 +263,7 @@ pub mod auction_factory {
         _auction_factory_bump: u8,
         _auction_bump: u8,
         _sequence: u64,
-        amount: u64
+        amount: u64,
     ) -> ProgramResult {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
@@ -295,13 +307,11 @@ pub mod auction_factory {
         bidder_account_bump: u8,
         _auction_factory_bump: u8,
         _auction_bump: u8,
-        _sequence: u64
+        _sequence: u64,
     ) -> ProgramResult {
         // we don't check if auction factory is active here because
         // we should be able to settle any ongoing auction even if
         // auction factory is paused.
-
-        let winning_bid_amount = ctx.accounts.auction.amount;
 
         verify::verify_auction_address_for_factory(
             ctx.accounts.auction_factory.get_current_sequence(),
@@ -310,26 +320,36 @@ pub mod auction_factory {
         )?;
 
         verify::verify_auction_can_be_settled(&ctx.accounts.auction)?;
+        verify::verify_auction_has_resource(&ctx.accounts.auction)?;
 
-        verify::verify_treasury(&ctx.accounts.auction_factory, ctx.accounts.treasury.key())?;
+        if ctx.accounts.auction.amount == 0 {
+            msg!(
+                "settling auction with no bids: {}",
+                ctx.accounts.auction.key().to_string()
+            );
 
-        verify::verify_bidder_token_account(
-            ctx.accounts.bidder_token_account.to_account_info(),
-            &ctx.accounts.auction,
-            bidder_account_bump,
-        )?;
+            // burn token in auctions without bid?
+            instructions::settle_auction::settle_empty_auction(ctx)?;
+        } else {
+            msg!(
+                "settling auction [{}] with winning bid = {}",
+                ctx.accounts.auction.key().to_string(),
+                ctx.accounts.auction.amount
+            );
 
-        // update token metadata so that primary_sale_happened = true
-        // instructions::update_metadata::update_metadata(
-        //     ctx.accounts
-        //         .into_update_metadata_authority()
-        //         .with_signer(&[seed]),
-        //     None,       // update authority stays the same
-        //     None,       // no Data change
-        //     Some(true), // primary_sale_happened
-        // );
+            verify::verify_treasury(&ctx.accounts.auction_factory, ctx.accounts.treasury.key())?;
 
-        instructions::settle_auction::settle(ctx)?;
+            verify::verify_bidder_token_account(
+                ctx.accounts.bidder_token_account.to_account_info(),
+                &ctx.accounts.auction,
+                bidder_account_bump,
+            )?;
+
+            instructions::settle_auction::settle(ctx)?;
+        }
+
+        // close token accounts once tokens are gone?
+        // instructions::close_token_account::close
 
         Ok(())
     }

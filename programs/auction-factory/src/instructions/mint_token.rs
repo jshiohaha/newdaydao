@@ -4,8 +4,10 @@ use {
 };
 
 // local imports
-use crate::context::CreateTokenMint;
-use crate::AUX_SEED;
+use crate::{
+    AUX_SEED,
+    context::CreateTokenMint,
+};
 
 pub fn mint_to_auction(
     ctx: &Context<CreateTokenMint>,

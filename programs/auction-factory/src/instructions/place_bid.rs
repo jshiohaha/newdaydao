@@ -1,10 +1,12 @@
-use crate::error::ErrorCode;
-use crate::structs::auction::Auction;
-// use crate::structs::auction_factory::AuctionFactory;
-use anchor_lang::{prelude::*, solana_program};
+use anchor_lang::prelude::*;
 
-use crate::context::PlaceBid;
-use crate::instructions::transfer::{transfer_from_signer};
+// local imports
+use crate::{
+    error::ErrorCode,
+    structs::auction::Auction,
+    context::PlaceBid,
+    instructions::transfer::transfer_from_signer
+};
 
 pub fn return_losing_bid_amount(ctx: &Context<PlaceBid>) -> ProgramResult {
     let amount = ctx.accounts.auction.amount;
