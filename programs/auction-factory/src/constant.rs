@@ -1,7 +1,11 @@
 
 // prefixes used in PDA derivations to avoid collisions with other programs.
-pub const AUX_FACTORY_SEED: &[u8] = b"aux_fax";
-pub const AUX_SEED: &[u8] = b"aux";
+pub const AUX_FACTORY_SEED: &str = "aux_fax";
+// pub const AUX_FACTORY_SEED: &[u8] = b"aux_fax";
+pub const AUX_SEED: &str = "aux";
+// pub const AUX_SEED: &[u8] = b"aux";
+// const PREFIX: &str = "candy_machine";
+
 pub const URI_CONFIG_SEED: &[u8] = b"config";
 pub const AUX_FAX_PROGRAM_ID: &str = "44viVLXpTZ5qTdtHDN59iYLABZUaw8EBwnTN4ygehukp";
 pub const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID: &str =

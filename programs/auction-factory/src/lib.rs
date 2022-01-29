@@ -117,20 +117,20 @@ pub mod auction_factory {
         let current_sequence = ctx.accounts.auction_factory.get_current_sequence();
         verify::verify_auction_address_for_factory(
             current_sequence,
-            ctx.accounts.auction_factory.authority.key(),
+            ctx.accounts.auction_factory.key(),
             ctx.accounts.auction.key(),
         )?;
 
         verify::verify_auction_resource_dne(&ctx.accounts.auction)?;
 
-        let authority_key = ctx.accounts.auction.authority.key();
+        let auction_factory_key = ctx.accounts.auction_factory.key();
         let sequence = ctx.accounts.auction.sequence.to_string();
         let bump = ctx.accounts.auction.bump;
 
         let seeds = &[
-            AUX_SEED.as_ref(),
-            authority_key.as_ref(),
-            sequence.as_ref(),
+            AUX_SEED.as_bytes(),
+            auction_factory_key.as_ref(),
+            sequence.as_bytes(),
             &[bump],
         ];
 
@@ -185,7 +185,7 @@ pub mod auction_factory {
 
         verify::verify_auction_address_for_factory(
             ctx.accounts.auction_factory.get_current_sequence(),
-            ctx.accounts.auction_factory.authority.key(),
+            ctx.accounts.auction_factory.key(),
             ctx.accounts.auction.key(),
         )?;
 
@@ -231,7 +231,7 @@ pub mod auction_factory {
 
         verify::verify_auction_address_for_factory(
             ctx.accounts.auction_factory.get_current_sequence(),
-            ctx.accounts.auction_factory.authority.key(),
+            ctx.accounts.auction_factory.key(),
             ctx.accounts.auction.key(),
         )?;
 
@@ -272,17 +272,17 @@ pub mod auction_factory {
         _auction_bump: u8,
         _sequence: u64
     ) -> ProgramResult {
-        let authority_key = ctx.accounts.auction.authority.key();
-        let seq = ctx.accounts.auction.sequence.to_string();
+        let auction_factory_key = ctx.accounts.auction_factory.key();
+        let sequence = ctx.accounts.auction.sequence.to_string();
         let bump = ctx.accounts.auction.bump;
 
         token::close_account(
             ctx.accounts
                 .into_close_token_account_context()
                 .with_signer(&[&[
-                    AUX_SEED.as_ref(),
-                    authority_key.as_ref(),
-                    seq.as_ref(),
+                    AUX_SEED.as_bytes(),
+                    auction_factory_key.as_ref(),
+                    sequence.as_bytes(),
                     &[bump],
                 ]])
         )?;
@@ -450,7 +450,7 @@ pub fn create_auction_helper(
 
     verify::verify_auction_address_for_factory(
         auction_factory.sequence,
-        auction_factory.authority.key(),
+        auction_factory.key(),
         next_auction.key(),
     )?;
 

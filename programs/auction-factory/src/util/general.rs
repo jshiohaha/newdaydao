@@ -18,11 +18,15 @@ pub fn get_auction_account_address(
     auction_factory: Pubkey,
 ) -> (Pubkey, u8) {
     let seq_seed = sequence.to_string();
-    let seeds = &[AUX_SEED.as_ref(), auction_factory.as_ref(), seq_seed.as_ref()];
+    let seeds = &[
+        AUX_SEED.as_bytes(),
+        auction_factory.as_ref(),
+        seq_seed.as_ref()
+    ];
 
     let program_id: Pubkey = Pubkey::from_str(AUX_FAX_PROGRAM_ID).unwrap();
 
-    // TODO: use Pubkey::create_program_address(seeds, &program_id).unwrap() instad
+    // TODO: Pubkey::create_program_address(seeds, &program_id).unwrap() instead, cheaper?
     return Pubkey::find_program_address(seeds, &program_id);
 }
 

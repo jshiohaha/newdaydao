@@ -12,17 +12,17 @@ use crate::{
 };
 
 pub fn settle_empty_auction(ctx: Context<SettleAuction>) -> ProgramResult {
-    let authority_key = ctx.accounts.auction.authority.key();
-    let seq = ctx.accounts.auction.sequence.to_string();
+    let auction_factory_key = ctx.accounts.auction_factory.key();
+    let sequence = ctx.accounts.auction.sequence.to_string();
     let bump = ctx.accounts.auction.bump;
 
     token::burn(
         ctx.accounts
             .into_burn_token_context()
             .with_signer(&[&[
-                AUX_SEED.as_ref(),
-                authority_key.as_ref(),
-                seq.as_ref(),
+                AUX_SEED.as_bytes(),
+                auction_factory_key.as_ref(),
+                sequence.as_bytes(),
                 &[bump],
             ]]),
         1
@@ -34,14 +34,14 @@ pub fn settle_empty_auction(ctx: Context<SettleAuction>) -> ProgramResult {
 }
 
 pub fn settle(ctx: Context<SettleAuction>) -> ProgramResult {
-    let authority_key = ctx.accounts.auction.authority.key();
-    let seq = ctx.accounts.auction.sequence.to_string();
+    let auction_factory_key = ctx.accounts.auction_factory.key();
+    let sequence = ctx.accounts.auction.sequence.to_string();
     let bump = ctx.accounts.auction.bump;
 
     let seeds = &[
-        AUX_SEED.as_ref(),
-        authority_key.as_ref(),
-        seq.as_ref(),
+        AUX_SEED.as_bytes(),
+        auction_factory_key.as_ref(),
+        sequence.as_bytes(),
         &[bump],
     ];
 

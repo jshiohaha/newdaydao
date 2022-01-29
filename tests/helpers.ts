@@ -32,20 +32,23 @@ export const sleep = (ms: number) => {
 export const getAuctionFactoryAccountAddress = async (authority: PublicKey) => {
     return await PublicKey.findProgramAddress(
         [
-            anchor.utils.bytes.utf8.encode(AUX_FAX_SEED), authority.toBytes()],
+            Buffer.from(AUX_FAX_SEED),
+            // Buffer.from(uuid),
+            authority.toBytes()
+        ],
         AUX_FACTORY_PROGRAM_ID
     );
 };
 
 export const getAuctionAccountAddress = async (
     sequence: number,
-    authority: PublicKey
+    auctionFactory: PublicKey
 ) => {
     return await PublicKey.findProgramAddress(
         [
-            anchor.utils.bytes.utf8.encode(AUX_SEED),
-            authority.toBytes(),
-            anchor.utils.bytes.utf8.encode(sequence.toString()),
+            Buffer.from(AUX_SEED),
+            auctionFactory.toBytes(),
+            Buffer.from(sequence.toString()),
         ],
         AUX_FACTORY_PROGRAM_ID
     );
@@ -56,7 +59,7 @@ export const getConfigAddress = async (
     // authority: PublicKey
 ) => {
     return await PublicKey.findProgramAddress(
-        [anchor.utils.bytes.utf8.encode(URI_CONFIG_SEED)],
+        [Buffer.from(URI_CONFIG_SEED)],
         AUX_FACTORY_PROGRAM_ID
     );
 };
@@ -65,10 +68,10 @@ export const getMasterEdition = async (mint: PublicKey): Promise<PublicKey> => {
     return (
         await PublicKey.findProgramAddress(
             [
-                anchor.utils.bytes.utf8.encode("metadata"),
+                Buffer.from("metadata"),
                 TOKEN_METADATA_PROGRAM_ID.toBuffer(),
                 mint.toBuffer(),
-                anchor.utils.bytes.utf8.encode("edition"),
+                Buffer.from("edition"),
             ],
             TOKEN_METADATA_PROGRAM_ID
         )
@@ -79,7 +82,7 @@ export const getMetadata = async (mint: PublicKey): Promise<PublicKey> => {
     return (
         await PublicKey.findProgramAddress(
             [
-                anchor.utils.bytes.utf8.encode("metadata"),
+                Buffer.from("metadata"),
                 TOKEN_METADATA_PROGRAM_ID.toBuffer(),
                 mint.toBuffer(),
             ],
@@ -128,13 +131,6 @@ export const createAssociatedTokenAccountInstruction = (
 };
 
 ////////
-
-export const getAuctionFactoryAuthority = () => {
-    return PublicKey.findProgramAddress(
-        [anchor.utils.bytes.utf8.encode("authority")],
-        AUX_FACTORY_PROGRAM_ID
-    );
-};
 
 export const getAssociatedTokenAccountAddress = async (
     owner: PublicKey,
@@ -312,7 +308,7 @@ export const getAuctionAccountData = async (
 
     const [auctionAddress, auctionBump] = await getAuctionAccountAddress(
         currentSequence,
-        auctionFactoryAccount.authority
+        auctionFactory.address
     );
 
     if (auctionFactoryAccount.sequence.toNumber() === 0) {
@@ -329,7 +325,7 @@ export const getAuctionAccountData = async (
 
     const [nextAuctionAddress, nextAuctionBump] = await getAuctionAccountAddress(
         auctionFactoryAccount.sequence.toNumber(),
-        auctionFactoryAccount.authority
+        auctionFactory.address
     );
 
     return {

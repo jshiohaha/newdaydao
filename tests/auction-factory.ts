@@ -533,7 +533,7 @@ describe("execute basic auction factory functions", async () => {
         const initialSequence = 0;
         const [auctionAddress, auctionBump] = await getAuctionAccountAddress(
             initialSequence,
-            auctionFactoryAccount.authority
+            auctionFactory.address
         );
 
         expectThrowsAsync(async () => {
@@ -863,7 +863,7 @@ describe("execute basic auction factory functions", async () => {
         );
         const [auctionAddress, auctionBump] = await getAuctionAccountAddress(
             firstAcutionSequence,
-            auctionFactoryAccount.authority
+            auctionFactory.address
         );
         let auctionAccount = await program.account.auction.fetch(
             auctionAddress
@@ -1224,349 +1224,349 @@ describe("execute basic auction factory functions", async () => {
         assert.ok(bids.length === 2);
     });
 
-    // it("spin until auction can be settled", async () => {
-    //     const auctionsData = await getAuctionAccountData(
-    //         program,
-    //         auctionFactory
-    //     );
+    it("spin until auction can be settled", async () => {
+        const auctionsData = await getAuctionAccountData(
+            program,
+            auctionFactory
+        );
 
-    //     await waitForAuctionToEnd(program, auctionsData.currentAuction);
-    // });
+        await waitForAuctionToEnd(program, auctionsData.currentAuction);
+    });
 
-    // it("attempt to place a valid bid after auction is over", async () => {
-    //     let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-    //         auctionFactory.address
-    //     );
+    it("attempt to place a valid bid after auction is over", async () => {
+        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
+            auctionFactory.address
+        );
 
-    //     const auctionsData = await getAuctionAccountData(
-    //         program,
-    //         auctionFactory
-    //     );
-    //     let auctionAccount = await program.account.auction.fetch(
-    //         auctionsData.currentAuction
-    //     );
+        const auctionsData = await getAuctionAccountData(
+            program,
+            auctionFactory
+        );
+        let auctionAccount = await program.account.auction.fetch(
+            auctionsData.currentAuction
+        );
 
-    //     const winningAmountBeforeBidAttempt = auctionAccount.amount.toNumber();
-    //     const winningBidderBeforeBidAttempt = auctionAccount.bidder.toString();
+        const winningAmountBeforeBidAttempt = auctionAccount.amount.toNumber();
+        const winningBidderBeforeBidAttempt = auctionAccount.bidder.toString();
 
-    //     const bidAmountInLamports = 110;
-    //     const outOfTimeBidder = Keypair.generate();
+        const bidAmountInLamports = 110;
+        const outOfTimeBidder = Keypair.generate();
 
-    //     expectThrowsAsync(async () => {
-    //         await program.rpc.placeBid(
-    //             auctionFactory.bump,
-    //             auctionsData.currentAuctionBump,
-    //             auctionAccount.sequence,
-    //             new anchor.BN(bidAmountInLamports),
-    //             {
-    //                 accounts: {
-    //                     bidder: outOfTimeBidder.publicKey,
-    //                     authority: auctionFactoryAccount.authority,
-    //                     leadingBidder: myWallet.publicKey,
-    //                     auctionFactory: auctionFactory.address,
-    //                     auction: auctionsData.currentAuction,
-    //                     systemProgram: SystemProgram.programId,
-    //                 },
-    //                 instructions: [
-    //                     SystemProgram.transfer({
-    //                         fromPubkey: myWallet.publicKey,
-    //                         toPubkey: outOfTimeBidder.publicKey,
-    //                         lamports: bidAmountInLamports * 1.5,
-    //                     }),
-    //                 ],
-    //                 signers: [outOfTimeBidder],
-    //             }
-    //         );
-    //     });
+        expectThrowsAsync(async () => {
+            await program.rpc.placeBid(
+                auctionFactory.bump,
+                auctionsData.currentAuctionBump,
+                auctionAccount.sequence,
+                new anchor.BN(bidAmountInLamports),
+                {
+                    accounts: {
+                        bidder: outOfTimeBidder.publicKey,
+                        authority: auctionFactoryAccount.authority,
+                        leadingBidder: myWallet.publicKey,
+                        auctionFactory: auctionFactory.address,
+                        auction: auctionsData.currentAuction,
+                        systemProgram: SystemProgram.programId,
+                    },
+                    instructions: [
+                        SystemProgram.transfer({
+                            fromPubkey: myWallet.publicKey,
+                            toPubkey: outOfTimeBidder.publicKey,
+                            lamports: bidAmountInLamports * 1.5,
+                        }),
+                    ],
+                    signers: [outOfTimeBidder],
+                }
+            );
+        });
 
-    //     auctionAccount = await program.account.auction.fetch(auctionsData.currentAuction);
+        auctionAccount = await program.account.auction.fetch(auctionsData.currentAuction);
 
-    //     const winningAmountAfterBidAttempt = auctionAccount.amount.toNumber();
-    //     const winningBidderAfterBidAttempt = auctionAccount.bidder.toString();
+        const winningAmountAfterBidAttempt = auctionAccount.amount.toNumber();
+        const winningBidderAfterBidAttempt = auctionAccount.bidder.toString();
 
-    //     assert.ok(
-    //         winningAmountBeforeBidAttempt === winningAmountAfterBidAttempt
-    //     );
-    //     assert.ok(
-    //         winningBidderBeforeBidAttempt === winningBidderAfterBidAttempt
-    //     );
-    // });
+        assert.ok(
+            winningAmountBeforeBidAttempt === winningAmountAfterBidAttempt
+        );
+        assert.ok(
+            winningBidderBeforeBidAttempt === winningBidderAfterBidAttempt
+        );
+    });
 
-    // it("attempt to settle wrong auction", async () => {
-    //     let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-    //         auctionFactory.address
-    //     );
+    it("attempt to settle wrong auction", async () => {
+        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
+            auctionFactory.address
+        );
 
-    //     const auctionsData = await getAuctionAccountData(
-    //         program,
-    //         auctionFactory
-    //     );
-    //     let auctionAccount = await program.account.auction.fetch(
-    //         auctionsData.currentAuction
-    //     );
+        const auctionsData = await getAuctionAccountData(
+            program,
+            auctionFactory
+        );
+        let auctionAccount = await program.account.auction.fetch(
+            auctionsData.currentAuction
+        );
 
-    //     const mintKey = new PublicKey(auctionAccount.resource.toString());
-    //     const [bidderTokenAccount, bidderTokenAccountBump] =
-    //         await getTokenMintAccount(auctionAccount.bidder, mintKey);
+        const mintKey = new PublicKey(auctionAccount.resource.toString());
+        const [bidderTokenAccount, bidderTokenAccountBump] =
+            await getTokenMintAccount(auctionAccount.bidder, mintKey);
 
-    //     const metadata = await getMetadata(mintKey);
+        const metadata = await getMetadata(mintKey);
 
-    //     const [auctionTokenAccount, _] = await getTokenMintAccount(
-    //         auctionsData.currentAuction,
-    //         mintKey
-    //     );
+        const [auctionTokenAccount, _] = await getTokenMintAccount(
+            auctionsData.currentAuction,
+            mintKey
+        );
 
-    //     const [auxAddress, auxBump] = await getAuctionAccountAddress(
-    //         3,
-    //         myWallet.publicKey
-    //     );
+        const [auxAddress, auxBump] = await getAuctionAccountAddress(
+            3,
+            auctionFactory.address
+        );
 
-    //     expectThrowsAsync(async () => {
-    //         await program.rpc.settleAuction(
-    //             bidderTokenAccountBump,
-    //             auctionFactory.bump,
-    //             auxBump,
-    //             new anchor.BN(3),
-    //             {
-    //                 accounts: {
-    //                     payer: myWallet.publicKey,
-    //                     treasury: auctionFactoryAccount.treasury,
-    //                     metadata,
-    //                     authority: auctionFactoryAccount.authority,
-    //                     auctionFactory: auctionFactory.address,
-    //                     auction: auxAddress,
-    //                     mint: mintKey,
-    //                     tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-    //                     tokenProgram: TOKEN_PROGRAM_ID,
-    //                     systemProgram: SystemProgram.programId,
-    //                     bidderTokenAccount: bidderTokenAccount,
-    //                     auctionTokenAccount,
-    //                 },
-    //                 instructions: [
-    //                     createAssociatedTokenAccountInstruction(
-    //                         mintKey,
-    //                         bidderTokenAccount,
-    //                         auctionAccount.bidder, // owner
-    //                         myWallet.publicKey // payer
-    //                     ),
-    //                 ],
-    //                 signers: [myWallet],
-    //             }
-    //         );
-    //     });
-    // });
+        expectThrowsAsync(async () => {
+            await program.rpc.settleAuction(
+                bidderTokenAccountBump,
+                auctionFactory.bump,
+                auxBump,
+                new anchor.BN(3),
+                {
+                    accounts: {
+                        payer: myWallet.publicKey,
+                        treasury: auctionFactoryAccount.treasury,
+                        metadata,
+                        authority: auctionFactoryAccount.authority,
+                        auctionFactory: auctionFactory.address,
+                        auction: auxAddress,
+                        mint: mintKey,
+                        tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+                        tokenProgram: TOKEN_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                        bidderTokenAccount: bidderTokenAccount,
+                        auctionTokenAccount,
+                    },
+                    instructions: [
+                        createAssociatedTokenAccountInstruction(
+                            mintKey,
+                            bidderTokenAccount,
+                            auctionAccount.bidder, // owner
+                            myWallet.publicKey // payer
+                        ),
+                    ],
+                    signers: [myWallet],
+                }
+            );
+        });
+    });
 
-    // it("attempt to settle auction with invalid treasury", async () => {
-    //     let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-    //         auctionFactory.address
-    //     );
+    it("attempt to settle auction with invalid treasury", async () => {
+        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
+            auctionFactory.address
+        );
 
-    //     const auctionsData = await getAuctionAccountData(
-    //         program,
-    //         auctionFactory
-    //     );
-    //     let auctionAccount = await program.account.auction.fetch(
-    //         auctionsData.currentAuction
-    //     );
+        const auctionsData = await getAuctionAccountData(
+            program,
+            auctionFactory
+        );
+        let auctionAccount = await program.account.auction.fetch(
+            auctionsData.currentAuction
+        );
 
-    //     const mintKey = new PublicKey(auctionAccount.resource.toString());
-    //     const [bidderTokenAccount, bidderTokenAccountBump] =
-    //         await getTokenMintAccount(auctionAccount.bidder, mintKey);
+        const mintKey = new PublicKey(auctionAccount.resource.toString());
+        const [bidderTokenAccount, bidderTokenAccountBump] =
+            await getTokenMintAccount(auctionAccount.bidder, mintKey);
 
-    //     const metadata = await getMetadata(mintKey);
+        const metadata = await getMetadata(mintKey);
 
-    //     const [auctionTokenAccount, auctionTokenAccountBump] =
-    //         await getTokenMintAccount(auctionsData.currentAuction, mintKey);
+        const [auctionTokenAccount, auctionTokenAccountBump] =
+            await getTokenMintAccount(auctionsData.currentAuction, mintKey);
 
-    //     expectThrowsAsync(async () => {
-    //         await program.rpc.settleAuction(
-    //             bidderTokenAccountBump,
-    //             auctionFactory.bump,
-    //             auctionsData.currentAuctionBump,
-    //             auctionAccount.sequence,
-    //             {
-    //                 accounts: {
-    //                     payer: myWallet.publicKey,
-    //                     treasury: Keypair.generate().publicKey,
-    //                     metadata,
-    //                     authority: auctionFactoryAccount.authority,
-    //                     auctionFactory: auctionFactory.address,
-    //                     auction: auctionsData.currentAuction,
-    //                     mint: mintKey,
-    //                     tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-    //                     tokenProgram: TOKEN_PROGRAM_ID,
-    //                     systemProgram: SystemProgram.programId,
-    //                     bidderTokenAccount: bidderTokenAccount,
-    //                     auctionTokenAccount,
-    //                 },
-    //                 instructions: [
-    //                     createAssociatedTokenAccountInstruction(
-    //                         mintKey,
-    //                         bidderTokenAccount,
-    //                         auctionAccount.bidder, // owner
-    //                         myWallet.publicKey // payer
-    //                     ),
-    //                 ],
-    //                 signers: [myWallet],
-    //             }
-    //         );
-    //     });
-    // });
+        expectThrowsAsync(async () => {
+            await program.rpc.settleAuction(
+                bidderTokenAccountBump,
+                auctionFactory.bump,
+                auctionsData.currentAuctionBump,
+                auctionAccount.sequence,
+                {
+                    accounts: {
+                        payer: myWallet.publicKey,
+                        treasury: Keypair.generate().publicKey,
+                        metadata,
+                        authority: auctionFactoryAccount.authority,
+                        auctionFactory: auctionFactory.address,
+                        auction: auctionsData.currentAuction,
+                        mint: mintKey,
+                        tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+                        tokenProgram: TOKEN_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                        bidderTokenAccount: bidderTokenAccount,
+                        auctionTokenAccount,
+                    },
+                    instructions: [
+                        createAssociatedTokenAccountInstruction(
+                            mintKey,
+                            bidderTokenAccount,
+                            auctionAccount.bidder, // owner
+                            myWallet.publicKey // payer
+                        ),
+                    ],
+                    signers: [myWallet],
+                }
+            );
+        });
+    });
 
-    // it("attempt to settle auction with invalid bidder token account", async () => {
-    //     let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-    //         auctionFactory.address
-    //     );
+    it("attempt to settle auction with invalid bidder token account", async () => {
+        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
+            auctionFactory.address
+        );
 
-    //     const auctionsData = await getAuctionAccountData(
-    //         program,
-    //         auctionFactory
-    //     );
-    //     let auctionAccount = await program.account.auction.fetch(
-    //         auctionsData.currentAuction
-    //     );
+        const auctionsData = await getAuctionAccountData(
+            program,
+            auctionFactory
+        );
+        let auctionAccount = await program.account.auction.fetch(
+            auctionsData.currentAuction
+        );
 
-    //     const mintKey = new PublicKey(auctionAccount.resource.toString());
+        const mintKey = new PublicKey(auctionAccount.resource.toString());
 
-    //     const fakeAuctionWinner = Keypair.generate();
-    //     const [bidderTokenAccount, bidderTokenAccountBump] =
-    //         await getTokenMintAccount(fakeAuctionWinner.publicKey, mintKey);
+        const fakeAuctionWinner = Keypair.generate();
+        const [bidderTokenAccount, bidderTokenAccountBump] =
+            await getTokenMintAccount(fakeAuctionWinner.publicKey, mintKey);
 
-    //     const metadata = await getMetadata(mintKey);
+        const metadata = await getMetadata(mintKey);
 
-    //     const [auctionTokenAccount, _] = await getTokenMintAccount(
-    //         auctionsData.currentAuction,
-    //         mintKey
-    //     );
+        const [auctionTokenAccount, _] = await getTokenMintAccount(
+            auctionsData.currentAuction,
+            mintKey
+        );
 
-    //     expectThrowsAsync(async () => {
-    //         await program.rpc.settleAuction(
-    //             bidderTokenAccountBump,
-    //             auctionFactory.bump,
-    //             auctionsData.currentAuctionBump,
-    //             auctionAccount.sequence,
-    //             {
-    //                 accounts: {
-    //                     payer: myWallet.publicKey,
-    //                     treasury: auctionFactoryAccount.treasury,
-    //                     metadata,
-    //                     authority: auctionFactoryAccount.authority,
-    //                     auctionFactory: auctionFactory.address,
-    //                     auction: auctionsData.currentAuction,
-    //                     mint: mintKey,
-    //                     tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-    //                     tokenProgram: TOKEN_PROGRAM_ID,
-    //                     systemProgram: SystemProgram.programId,
-    //                     bidderTokenAccount: bidderTokenAccount,
-    //                     auctionTokenAccount,
-    //                 },
-    //                 instructions: [
-    //                     createAssociatedTokenAccountInstruction(
-    //                         mintKey,
-    //                         bidderTokenAccount,
-    //                         fakeAuctionWinner.publicKey, // owner
-    //                         myWallet.publicKey // payer
-    //                     ),
-    //                 ],
-    //                 signers: [myWallet],
-    //             }
-    //         );
-    //     });
-    // });
+        expectThrowsAsync(async () => {
+            await program.rpc.settleAuction(
+                bidderTokenAccountBump,
+                auctionFactory.bump,
+                auctionsData.currentAuctionBump,
+                auctionAccount.sequence,
+                {
+                    accounts: {
+                        payer: myWallet.publicKey,
+                        treasury: auctionFactoryAccount.treasury,
+                        metadata,
+                        authority: auctionFactoryAccount.authority,
+                        auctionFactory: auctionFactory.address,
+                        auction: auctionsData.currentAuction,
+                        mint: mintKey,
+                        tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+                        tokenProgram: TOKEN_PROGRAM_ID,
+                        systemProgram: SystemProgram.programId,
+                        bidderTokenAccount: bidderTokenAccount,
+                        auctionTokenAccount,
+                    },
+                    instructions: [
+                        createAssociatedTokenAccountInstruction(
+                            mintKey,
+                            bidderTokenAccount,
+                            fakeAuctionWinner.publicKey, // owner
+                            myWallet.publicKey // payer
+                        ),
+                    ],
+                    signers: [myWallet],
+                }
+            );
+        });
+    });
 
-    // it("settle auction", async () => {
-    //     let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-    //         auctionFactory.address
-    //     );
-    //     const treasuryBalanceBefore = await getAccountBalance(
-    //         program,
-    //         auctionFactoryAccount.treasury
-    //     );
+    it("settle auction", async () => {
+        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
+            auctionFactory.address
+        );
+        const treasuryBalanceBefore = await getAccountBalance(
+            program,
+            auctionFactoryAccount.treasury
+        );
 
-    //     const auctionsData = await getAuctionAccountData(
-    //         program,
-    //         auctionFactory
-    //     );
-    //     let auctionAccount = await program.account.auction.fetch(
-    //         auctionsData.currentAuction
-    //     );
+        const auctionsData = await getAuctionAccountData(
+            program,
+            auctionFactory
+        );
+        let auctionAccount = await program.account.auction.fetch(
+            auctionsData.currentAuction
+        );
 
-    //     const mintKey = new PublicKey(auctionAccount.resource.toString());
-    //     const [bidderTokenAccount, bidderTokenAccountBump] =
-    //         await getTokenMintAccount(auctionAccount.bidder, mintKey);
+        const mintKey = new PublicKey(auctionAccount.resource.toString());
+        const [bidderTokenAccount, bidderTokenAccountBump] =
+            await getTokenMintAccount(auctionAccount.bidder, mintKey);
 
-    //     const metadata = await getMetadata(mintKey);
+        const metadata = await getMetadata(mintKey);
 
-    //     const [auctionTokenAccount, _auctionTokenAccountBump] =
-    //         await getTokenMintAccount(auctionsData.currentAuction, mintKey);
+        const [auctionTokenAccount, _auctionTokenAccountBump] =
+            await getTokenMintAccount(auctionsData.currentAuction, mintKey);
 
-    //     const settleAuctionPreInstructions = auctionAccount.amount.toNumber() > 0
-    //         ? [
-    //             createAssociatedTokenAccountInstruction(
-    //                 mintKey,
-    //                 bidderTokenAccount,
-    //                 auctionAccount.bidder, // owner
-    //                 myWallet.publicKey // payer
-    //             ),
-    //         ]
-    //         : [];
+        const settleAuctionPreInstructions = auctionAccount.amount.toNumber() > 0
+            ? [
+                createAssociatedTokenAccountInstruction(
+                    mintKey,
+                    bidderTokenAccount,
+                    auctionAccount.bidder, // owner
+                    myWallet.publicKey // payer
+                ),
+            ]
+            : [];
 
-    //     await program.rpc.settleAuction(
-    //         bidderTokenAccountBump,
-    //         auctionFactory.bump,
-    //         auctionsData.currentAuctionBump,
-    //         auctionAccount.sequence,
-    //         {
-    //             accounts: {
-    //                 payer: myWallet.publicKey,
-    //                 treasury: auctionFactoryAccount.treasury,
-    //                 metadata,
-    //                 authority: auctionFactoryAccount.authority,
-    //                 auctionFactory: auctionFactory.address,
-    //                 auction: auctionsData.currentAuction,
-    //                 mint: mintKey,
-    //                 tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-    //                 tokenProgram: TOKEN_PROGRAM_ID,
-    //                 systemProgram: SystemProgram.programId,
-    //                 bidderTokenAccount: bidderTokenAccount,
-    //                 auctionTokenAccount
-    //             },
-    //             instructions: settleAuctionPreInstructions,
-    //             signers: [myWallet],
-    //         }
-    //     );
+        await program.rpc.settleAuction(
+            bidderTokenAccountBump,
+            auctionFactory.bump,
+            auctionsData.currentAuctionBump,
+            auctionAccount.sequence,
+            {
+                accounts: {
+                    payer: myWallet.publicKey,
+                    treasury: auctionFactoryAccount.treasury,
+                    metadata,
+                    authority: auctionFactoryAccount.authority,
+                    auctionFactory: auctionFactory.address,
+                    auction: auctionsData.currentAuction,
+                    mint: mintKey,
+                    tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                    systemProgram: SystemProgram.programId,
+                    bidderTokenAccount: bidderTokenAccount,
+                    auctionTokenAccount
+                },
+                instructions: settleAuctionPreInstructions,
+                signers: [myWallet],
+            }
+        );
 
-    //     auctionAccount = await program.account.auction.fetch(auctionsData.currentAuction);
+        auctionAccount = await program.account.auction.fetch(auctionsData.currentAuction);
 
-    //     assert.ok(auctionAccount.settled === true);
-    //     assert.ok(
-    //         auctionAccount.finalizedEndTime !== undefined &&
-    //             auctionAccount.finalizedEndTime.toNumber() !== 0
-    //     );
+        assert.ok(auctionAccount.settled === true);
+        assert.ok(
+            auctionAccount.finalizedEndTime !== undefined &&
+                auctionAccount.finalizedEndTime.toNumber() !== 0
+        );
 
-    //     // verify treasury balance has not changed
-    //     const treasuryBalanceAfter = await getAccountBalance(
-    //         program,
-    //         auctionFactoryAccount.treasury
-    //     );
-    //     assert.ok(
-    //         treasuryBalanceAfter - treasuryBalanceBefore ===
-    //             auctionAccount.amount.toNumber()
-    //     );
+        // verify treasury balance has not changed
+        const treasuryBalanceAfter = await getAccountBalance(
+            program,
+            auctionFactoryAccount.treasury
+        );
+        assert.ok(
+            treasuryBalanceAfter - treasuryBalanceBefore ===
+                auctionAccount.amount.toNumber()
+        );
 
-    //     // verify token accounts have correct balances, aka token is in winner account and not auction account
-    //     const bidderTokenAmount =
-    //         await program.provider.connection.getTokenAccountBalance(
-    //             bidderTokenAccount
-    //         );
-    //     assert.ok(+bidderTokenAmount["value"]["amount"] === 1);
+        // verify token accounts have correct balances, aka token is in winner account and not auction account
+        const bidderTokenAmount =
+            await program.provider.connection.getTokenAccountBalance(
+                bidderTokenAccount
+            );
+        assert.ok(+bidderTokenAmount["value"]["amount"] === 1);
 
-    //     const auctionTokenAmount =
-    //         await program.provider.connection.getTokenAccountBalance(
-    //             auctionTokenAccount
-    //         );
-    //     assert.ok(+auctionTokenAmount["value"]["amount"] === 0);
-    // });
+        const auctionTokenAmount =
+            await program.provider.connection.getTokenAccountBalance(
+                auctionTokenAccount
+            );
+        assert.ok(+auctionTokenAmount["value"]["amount"] === 0);
+    });
 
 
 

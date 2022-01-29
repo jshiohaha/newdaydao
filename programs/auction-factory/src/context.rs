@@ -23,6 +23,14 @@ use crate::{
 /// context for unrestricted instructions ///
 /// =========================================
 
+// #[account(
+//     mut,
+//     constraint = config.to_account_info().owner == program_id,
+//     constraint = config.to_account_info().data_len() >= CONFIG_ARRAY_START+4+(data.max_number_of_lines as usize)*CONFIG_LINE_SIZE + 4 + (data.max_number_of_lines.checked_div(8).ok_or(ErrorCode::NumericalOverflowError)? as usize))]
+// #[account(constraint= authority.data_is_empty() && authority.lamports() > 0 )]
+
+// candy_machine.data.uuid.as_bytes()
+
 #[derive(Accounts)]
 #[instruction(
     auction_factory_bump: u8,
@@ -41,19 +49,21 @@ pub struct CreateTokenMint<'info> {
     pub authority: AccountInfo<'info>,
     #[account(
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
             authority.key().as_ref()
         ],
-        bump = auction_factory_bump
+        bump = auction_factory_bump,
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
     #[account(
         seeds = [
-            AUX_SEED.as_ref(),
-            auction_factory.authority.key().as_ref(),
-            sequence.to_string().as_ref()
+            AUX_SEED.as_bytes(),
+            auction_factory.key().as_ref(),
+            sequence.to_string().as_bytes()
         ],
-        bump = auction_bump
+        bump = auction_bump,
+        constraint = auction.to_account_info().owner == program_id,
     )]
     pub auction: Account<'info, Auction>,
     #[account(address = spl_token::id())]
@@ -72,22 +82,24 @@ pub struct CreateFirstAuction<'info> {
     #[account(
         mut,
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
             authority.key().as_ref()
         ],
-        bump = auction_factory_bump
+        bump = auction_factory_bump,
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
     #[account(
         init,
         seeds = [
-            AUX_SEED.as_ref(),
-            auction_factory.authority.key().as_ref(),
-            sequence.to_string().as_ref()
+            AUX_SEED.as_bytes(),
+            auction_factory.key().as_ref(),
+            sequence.to_string().as_bytes()
         ],
         bump = auction_bump,
         payer = payer,
-        space = AUCTION_ACCOUNT_SPACE
+        space = AUCTION_ACCOUNT_SPACE,
+        constraint = auction.to_account_info().owner == program_id,
     )]
     pub auction: Account<'info, Auction>,
     pub system_program: Program<'info, System>,
@@ -107,32 +119,35 @@ pub struct CreateNextAuction<'info> {
     #[account(
         mut,
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
             authority.key().as_ref()
         ],
-        bump = auction_factory_bump
+        bump = auction_factory_bump,
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
     #[account(
         mut,
         seeds = [
-            AUX_SEED.as_ref(),
-            auction_factory.authority.key().as_ref(),
-            current_seq.to_string().as_ref()
+            AUX_SEED.as_bytes(),
+            auction_factory.key().as_ref(),
+            current_seq.to_string().as_bytes()
         ],
-        bump = current_auction_bump
+        bump = current_auction_bump,
+        constraint = current_auction.to_account_info().owner == program_id,
     )]
     pub current_auction: Account<'info, Auction>,
     #[account(
         init,
         seeds = [
-            AUX_SEED.as_ref(),
-            auction_factory.authority.key().as_ref(),
-            next_seq.to_string().as_ref()
+            AUX_SEED.as_bytes(),
+            auction_factory.key().as_ref(),
+            next_seq.to_string().as_bytes()
         ],
         bump = next_auction_bump,
         payer = payer,
-        space = AUCTION_ACCOUNT_SPACE
+        space = AUCTION_ACCOUNT_SPACE,
+        constraint = next_auction.to_account_info().owner == program_id,
     )]
     pub next_auction: Account<'info, Auction>,
     pub system_program: Program<'info, System>,
@@ -159,20 +174,22 @@ pub struct SupplyResource<'info> {
     pub config: Account<'info, Config>,
     #[account(
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
             authority.key().as_ref()
         ],
         bump = auction_factory_bump,
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
     #[account(
         mut,
         seeds = [
-            AUX_SEED.as_ref(),
-            auction_factory.authority.key().as_ref(),
-            sequence.to_string().as_ref()
+            AUX_SEED.as_bytes(),
+            auction_factory.key().as_ref(),
+            sequence.to_string().as_bytes()
         ],
         bump = auction_bump,
+        constraint = auction.to_account_info().owner == program_id,
     )]
     pub auction: Account<'info, Auction>,
     #[account(
@@ -220,20 +237,22 @@ pub struct PlaceBid<'info> {
     #[account(
         mut,
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
             authority.key().as_ref()
         ],
-        bump = auction_factory_bump
+        bump = auction_factory_bump,
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
     #[account(
         mut,
         seeds = [
-            AUX_SEED.as_ref(),
-            auction_factory.authority.key().as_ref(),
-            sequence.to_string().as_ref()
+            AUX_SEED.as_bytes(),
+            auction_factory.key().as_ref(),
+            sequence.to_string().as_bytes()
         ],
-        bump = auction_bump
+        bump = auction_bump,
+        constraint = auction.to_account_info().owner == program_id,
     )]
     pub auction: Account<'info, Auction>,
     pub system_program: Program<'info, System>,
@@ -252,20 +271,22 @@ pub struct SettleAuction<'info> {
     #[account(
         mut,
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
             authority.key().as_ref()
         ],
-        bump = auction_factory_bump
+        bump = auction_factory_bump,
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
     #[account(
         mut,
         seeds = [
-            AUX_SEED.as_ref(),
-            auction_factory.authority.key().as_ref(),
-            sequence.to_string().as_ref()
+            AUX_SEED.as_bytes(),
+            auction_factory.key().as_ref(),
+            sequence.to_string().as_bytes()
         ],
-        bump = auction_bump
+        bump = auction_bump,
+        constraint = auction.to_account_info().owner == program_id,
     )]
     pub auction: Account<'info, Auction>,
     #[account(
@@ -308,20 +329,22 @@ pub struct CloseAuctionTokenAccount<'info> {
     #[account(
         mut,
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
             authority.key().as_ref()
         ],
-        bump = auction_factory_bump
+        bump = auction_factory_bump,
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
     #[account(
         mut,
         seeds = [
-            AUX_SEED.as_ref(),
-            auction_factory.authority.key().as_ref(),
-            sequence.to_string().as_ref()
+            AUX_SEED.as_bytes(),
+            auction_factory.key().as_ref(),
+            sequence.to_string().as_bytes()
         ],
-        bump = auction_bump
+        bump = auction_bump,
+        constraint = auction.to_account_info().owner == program_id,
     )]
     pub auction: Account<'info, Auction>,
     #[account(
@@ -354,7 +377,8 @@ pub struct InitializeConfig<'info> {
         ],
         bump = bump,
         payer = payer,
-        space = InitializeConfig::space(max_supply)
+        space = InitializeConfig::space(max_supply),
+        constraint = config.to_account_info().owner == program_id,
     )]
     pub config: Account<'info, Config>,
     pub system_program: Program<'info, System>,
@@ -363,6 +387,7 @@ pub struct InitializeConfig<'info> {
 #[derive(Accounts)]
 #[instruction(bump: u8, config_bump: u8, data: AuctionFactoryData)]
 pub struct InitializeAuctionFactory<'info> {
+    // payer is initial auction factory authority
     pub payer: Signer<'info>,
     pub treasury: AccountInfo<'info>,
     #[account(
@@ -370,16 +395,19 @@ pub struct InitializeAuctionFactory<'info> {
             URI_CONFIG_SEED.as_ref(),
         ],
         bump = config_bump,
+        constraint = config.to_account_info().owner == program_id,
     )]
     pub config: Account<'info, Config>,
     #[account(init,
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
+            // TODO: change this
             payer.key().as_ref()
         ],
         bump = bump,
         payer = payer,
-        space = AUCTION_FACTORY_ACCOUNT_SPACE
+        space = AUCTION_FACTORY_ACCOUNT_SPACE,
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
     pub system_program: Program<'info, System>,
@@ -391,10 +419,12 @@ pub struct ModifyAuctionFactory<'info> {
     pub payer: Signer<'info>,
     #[account(mut,
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
             payer.key().as_ref()
         ],
-        bump = bump
+        bump = bump,
+        constraint = auction_factory.authority.key() == payer.key(),
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
 }
@@ -406,10 +436,12 @@ pub struct UpdateAuctionFactoryAuthority<'info> {
     pub new_authority: AccountInfo<'info>,
     #[account(mut,
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
             payer.key().as_ref()
         ],
-        bump = bump
+        bump = bump,
+        constraint = auction_factory.authority.key() == payer.key(),
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
 }
@@ -420,10 +452,12 @@ pub struct UpdateAuctionFactoryTreasury<'info> {
     pub payer: Signer<'info>,
     #[account(mut,
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
             payer.key().as_ref()
         ],
-        bump = auction_factory_bump
+        bump = auction_factory_bump,
+        constraint = auction_factory.authority.key() == payer.key(),
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
     pub treasury: AccountInfo<'info>,
@@ -442,12 +476,13 @@ pub struct AddUrisToConfig<'info> {
     pub config: Account<'info, Config>,
     #[account(
         seeds = [
-            AUX_FACTORY_SEED.as_ref(),
+            AUX_FACTORY_SEED.as_bytes(),
             payer.key().as_ref()
         ],
         bump = auction_factory_bump,
         constraint = auction_factory.authority.key() == payer.key(),
         constraint = auction_factory.config.key() == config.key(),
+        constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
     pub system_program: Program<'info, System>,
