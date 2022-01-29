@@ -10,19 +10,19 @@ use {
     std::str::FromStr,
 };
 
-use crate::{AUX_FAX_PROGRAM_ID, AUX_SEED};
+use crate::constant::{AUX_FAX_PROGRAM_ID, AUX_SEED};
 use crate::error::ErrorCode;
 
-// return Pubkey::create_program_address(seeds, &associated_token_program_id).unwrap();
 pub fn get_auction_account_address(
     sequence: u64,
     auction_factory: Pubkey,
-    // program_id: Pubkey
 ) -> (Pubkey, u8) {
     let seq_seed = sequence.to_string();
     let seeds = &[AUX_SEED.as_ref(), auction_factory.as_ref(), seq_seed.as_ref()];
 
     let program_id: Pubkey = Pubkey::from_str(AUX_FAX_PROGRAM_ID).unwrap();
+
+    // TODO: use Pubkey::create_program_address(seeds, &program_id).unwrap() instad
     return Pubkey::find_program_address(seeds, &program_id);
 }
 

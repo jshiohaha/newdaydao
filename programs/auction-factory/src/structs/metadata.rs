@@ -1,5 +1,17 @@
-use {metaplex_token_metadata::state::Creator, solana_program::pubkey::Pubkey};
+use {
+    anchor_lang::prelude::*,
+    metaplex_token_metadata::state::Creator,
+    solana_program::pubkey::Pubkey};
 
+use crate::{
+    constant::{
+        AUCTION_CREATOR_SHARE, AUCTION_FACTORY_CREATOR_SHARE, SELLER_FEE_BASIS_POINTS,
+        TOKEN_BASE_NAME, TOKEN_SYMBOL,
+    },
+    structs::config::Config,
+};
+
+// TODO: update based on new metaplex metadata standard?
 pub struct MetadataInfo {
     pub name: String,
     pub symbol: String,
@@ -10,29 +22,33 @@ pub struct MetadataInfo {
     pub is_mutable: bool,
 }
 
-// TODO: udpate this to be more dynamic
-pub fn get_metadata_info(auction: Pubkey, auction_factory: Pubkey) -> MetadataInfo {
+pub fn get_metadata_info(
+    auction: Pubkey,
+    auction_factory: Pubkey,
+    current_sequence: u64,
+    config: String
+) -> MetadataInfo {
     // source: https://github.com/metaplex-foundation/metaplex/blob/626d15d82be241931425cf0b11105dbf25bc9ef8/rust/token-metadata/program/src/utils.rs#L86
     let creators = vec![
         Creator {
             address: auction,
             verified: true, // update_authority can be verified by default
-            share: 0,
+            share: AUCTION_CREATOR_SHARE,
         },
         Creator {
             address: auction_factory,
-            verified: false, // metaplex prevents us from unilaterally verifying other creators
-            share: 100,
+            verified: false, // metaplex metadata prevents us from unilaterally verifying other creators
+            share: AUCTION_FACTORY_CREATOR_SHARE,
         },
     ];
 
+    // let token_uri = String::from("https://arweave.net/EEsj8ZXEZaboA7SxVE9tim4eVje0sygduBbDxV1Lws0");
     return MetadataInfo {
-        name: String::from("NAME"), // name.push_str(&session);
-        symbol: String::from("SYMB"),
-        uri: String::from("https://arweave.net/EEsj8ZXEZaboA7SxVE9tim4eVje0sygduBbDxV1Lws0"),
-        // who do we want the creator address to be?; maybe some treasury?
+        name: format!("{} #{}", TOKEN_BASE_NAME, current_sequence),
+        symbol: TOKEN_SYMBOL.to_string(),
+        uri: format!("https://arweave.net/{}", config),
         creators: Some(creators),
-        seller_fee_basis_points: 420, // heh
+        seller_fee_basis_points: SELLER_FEE_BASIS_POINTS,
         update_authority_is_signer: true,
         is_mutable: true,
     };

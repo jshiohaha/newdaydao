@@ -18,3 +18,6 @@ export const TOKEN_BURN_ADDRESS = new PublicKey(
 
 export const AUX_SEED = "aux";
 export const AUX_FAX_SEED = "aux_fax";
+export const URI_CONFIG_SEED = "config";
+
+export const DEFAULT_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

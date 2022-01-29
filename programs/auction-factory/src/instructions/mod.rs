@@ -6,5 +6,3 @@ pub mod update_metadata;
 pub mod place_bid;
 pub mod settle_auction;
 pub mod transfer;
-pub mod close_token_account;
-pub mod burn_token;

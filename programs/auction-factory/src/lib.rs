@@ -1,5 +1,10 @@
-use {anchor_lang::prelude::*, solana_program::msg};
+use {
+    anchor_lang::prelude::*,
+    solana_program::msg,
+    anchor_spl::token,
+};
 
+mod constant;
 mod context;
 mod error;
 mod instructions;
@@ -7,129 +12,41 @@ mod structs;
 mod util;
 mod verify;
 
-use context::*;
-use structs::auction_factory::AuctionFactoryData;
-use structs::metadata::get_metadata_info;
+use {
+    constant::*,
+    context::*,
+    error::ErrorCode,
+    structs::{
+        auction::Auction,
+        auction_factory::{AuctionFactory, AuctionFactoryData},
+        metadata::get_metadata_info,
+    },
+};
+
+use std::{cmp, convert::TryInto, mem};
 
 declare_id!("44viVLXpTZ5qTdtHDN59iYLABZUaw8EBwnTN4ygehukp");
 
-// prefixes used in PDA derivations to avoid collisions with other programs.
-const AUX_FACTORY_SEED: &[u8] = b"aux_fax";
-const AUX_SEED: &[u8] = b"aux";
-const AUX_FAX_PROGRAM_ID: &str = "44viVLXpTZ5qTdtHDN59iYLABZUaw8EBwnTN4ygehukp";
-const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID: &str =
-    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
+// [TODO]
+// - change auction factory seed to not original authority in case it changes....
+// - same for config???? ^^
+//      - don't use authority pubkey. rather, some value like counter or seed phrase?
+//
+// - deploy to devnet and start testing???
+//      - can loosen params for testing
+//
+// ...later
+// - create PDA to store tweet data from owner?
+// - not sure we want to store in arweave because we have to update and reupload
+// (quest): what do all the derive params mean. i.e. PartialEq, Debug
 
 #[program]
 pub mod auction_factory {
     use super::*;
 
-    pub fn initialize_auction_factory(
-        ctx: Context<InitializeAuctionFactory>,
-        bump: u8,
-        data: AuctionFactoryData,
-    ) -> ProgramResult {
-        ctx.accounts.auction_factory.init(
-            bump,
-            *ctx.accounts.payer.key,
-            *ctx.accounts.treasury.key,
-            data,
-        );
-
-        Ok(())
-    }
-
-    pub fn toggle_auction_factory_status(
-        ctx: Context<ModifyAuctionFactory>,
-        _bump: u8,
-    ) -> ProgramResult {
-        verify::verify_auction_factory_authority(
-            *ctx.accounts.payer.key,
-            ctx.accounts.auction_factory.authority,
-        )?;
-
-        let auction_factory_status = ctx.accounts.auction_factory.is_active;
-        let auction_factory = &mut ctx.accounts.auction_factory;
-
-        if auction_factory_status {
-            msg!("Pausing auction factory");
-            auction_factory.pause();
-        } else {
-            msg!("Resuming auction factory");
-            auction_factory.resume();
-        }
-
-        Ok(())
-    }
-
-    pub fn modify_auction_factory_data(
-        ctx: Context<ModifyAuctionFactory>,
-        _bump: u8,
-        data: AuctionFactoryData,
-    ) -> ProgramResult {
-        verify::verify_auction_factory_authority(
-            *ctx.accounts.payer.key,
-            ctx.accounts.auction_factory.authority,
-        )?;
-
-        let auction_factory = &mut ctx.accounts.auction_factory;
-
-        auction_factory.update_data(data);
-
-        Ok(())
-    }
-
-    pub fn update_authority(
-        ctx: Context<UpdateAuctionFactoryAuthority>,
-        _bump: u8,
-    ) -> ProgramResult {
-        verify::verify_auction_factory_authority(
-            *ctx.accounts.payer.key,
-            ctx.accounts.auction_factory.authority,
-        )?;
-
-        let auction_factory = &mut ctx.accounts.auction_factory;
-
-        auction_factory.update_authority(*ctx.accounts.new_authority.key);
-
-        Ok(())
-    }
-
-    pub fn update_treasury(ctx: Context<UpdateAuctionFactoryTreasury>, _bump: u8) -> ProgramResult {
-        verify::verify_auction_factory_authority(
-            *ctx.accounts.payer.key,
-            ctx.accounts.auction_factory.authority,
-        )?;
-
-        // (quest): can we check that a treasury account exists?
-        // if not, treasury funds will be lost again until updated.
-
-        let auction_factory = &mut ctx.accounts.auction_factory;
-
-        auction_factory.update_treasury(*ctx.accounts.treasury.key);
-
-        Ok(())
-    }
-
-    // auction factory will be the creator of all NFTs and thus receive any secondary royalties.
-    // we need this functionality to extract royalties from the auction factory
-    // to the designated treasury.
-    pub fn transfer_lamports_to_treasury(
-        ctx: Context<ModifyAuctionFactory>,
-        _bump: u8,
-    ) -> ProgramResult {
-        verify::verify_auction_factory_authority(
-            *ctx.accounts.payer.key,
-            ctx.accounts.auction_factory.authority,
-        )?;
-
-        // TODO: transfer lamports from auction_factory PDA to treasury.
-        // reminder: don't over-transfer & leave account empty so that garbage
-        // collector automatically closes the account.
-        // (quest): how to calculate number of lamports to transfer?
-
-        Ok(())
-    }
+    /// ===================================
+    /// unrestricted instructions       ///
+    /// ===================================
 
     // only used as a custom mint_to instruction since the ixn requires the authority to sign
     // in the case of no multisig. and, a PDA can only sign from an on-chain
@@ -151,20 +68,11 @@ pub mod auction_factory {
         auction_bump: u8,
         _sequence: u64,
     ) -> ProgramResult {
-        verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
-
-        verify::verify_auction_factory_for_first_auction(&ctx.accounts.auction_factory)?;
-
-        verify::verify_auction_address_for_factory(
-            ctx.accounts.auction_factory.get_current_sequence(),
-            ctx.accounts.auction_factory.authority.key(),
-            ctx.accounts.auction.key(),
-        )?;
-
-        instructions::create_auction::create(
+        create_auction_helper(
+            &mut ctx.accounts.auction_factory,
             auction_bump,
             &mut ctx.accounts.auction,
-            &mut ctx.accounts.auction_factory,
+            None,
         )?;
 
         Ok(())
@@ -178,49 +86,42 @@ pub mod auction_factory {
         _current_seq: u64,
         _next_seq: u64,
     ) -> ProgramResult {
-        verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
-
-        verify::verify_auction_address_for_factory(
-            ctx.accounts.auction_factory.get_current_sequence(),
-            ctx.accounts.auction_factory.authority.key(),
-            ctx.accounts.current_auction.key(),
-        )?;
-
-        // ensure settled auction before creating a new auction, if we are past the first auction
-        verify::verify_current_auction_is_over(&ctx.accounts.current_auction)?;
-
-        instructions::create_auction::create(
+        create_auction_helper(
+            &mut ctx.accounts.auction_factory,
             next_auction_bump,
             &mut ctx.accounts.next_auction,
-            &mut ctx.accounts.auction_factory,
+            Some(&mut ctx.accounts.current_auction),
         )?;
 
         Ok(())
     }
 
+    // this is a separate ix from create_auction because we cannot call ix this until
+    // an auction acount has been created. from the client, we can batch these in 1 transaction.
+    // so, ux doesn't have to suffer from 2 separate transactions.
     pub fn supply_resource_to_auction(
         ctx: Context<SupplyResource>,
         _auction_factory_bump: u8,
         _auction_bump: u8,
+        _config_bump: u8,
         _sequence: u64,
     ) -> ProgramResult {
+        // i think mint & create metadata (NFT) logic could be moved to a separate program
+        // & invoked via CPI. that would decouple the auction from NFT logic. thinking this
+        // option is more attractive in the case that minting logic becomes more complex,
+        // i.e. we generate metadata and images on-chain, as opposed to storing in some
+        // decentralized data store (e.g. arweave, ipfs). going to leave here for now.
+
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
+        let current_sequence = ctx.accounts.auction_factory.get_current_sequence();
         verify::verify_auction_address_for_factory(
-            ctx.accounts.auction_factory.get_current_sequence(),
+            current_sequence,
             ctx.accounts.auction_factory.authority.key(),
             ctx.accounts.auction.key(),
         )?;
 
         verify::verify_auction_resource_dne(&ctx.accounts.auction)?;
-
-        // creators will be auction & auction factory account for purposes of secondary
-        // royalties since treasury can change. we will include an on-chain function to dump
-        // lamports from auction factory PDA to treasury.
-        let metadata_info = get_metadata_info(
-            ctx.accounts.auction.key(),
-            ctx.accounts.auction_factory.key(),
-        );
 
         let authority_key = ctx.accounts.auction.authority.key();
         let sequence = ctx.accounts.auction.sequence.to_string();
@@ -233,25 +134,40 @@ pub mod auction_factory {
             &[bump],
         ];
 
-        instructions::create_metadata::create_metadata(
-            ctx.accounts
-                .into_create_metadata_context()
-                .with_signer(&[seeds]),
-            metadata_info,
-        )?;
+        let uri: String = ctx
+            .accounts
+            .config
+            .get_item(current_sequence.try_into().unwrap())?;
 
-        instructions::create_master_edition::create_master_edition_metadata(
-            ctx.accounts
-                .into_create_master_edition_metadata_context()
-                .with_signer(&[seeds]),
-        )?;
+        // creators will be auction & auction factory account for purposes of secondary
+        // royalties since treasury can change. we will include an on-chain function to dump
+        // lamports from auction factory PDA to treasury.
+        let metadata_info = get_metadata_info(
+            ctx.accounts.auction.key(),
+            ctx.accounts.auction_factory.key(),
+            current_sequence,
+            uri
+        );
 
-        // update token metadata so that primary_sale_happened = true
-        instructions::update_metadata::update_metadata_after_primary_sale(
-            ctx.accounts
-                .into_update_metadata_authority()
-                .with_signer(&[seeds]),
-        )?;
+        // instructions::create_metadata::create_metadata(
+        //     ctx.accounts
+        //         .into_create_metadata_context()
+        //         .with_signer(&[seeds]),
+        //     metadata_info,
+        // )?;
+
+        // instructions::create_master_edition::create_master_edition_metadata(
+        //     ctx.accounts
+        //         .into_create_master_edition_metadata_context()
+        //         .with_signer(&[seeds]),
+        // )?;
+
+        // // update token metadata so that primary_sale_happened = true
+        // instructions::update_metadata::update_metadata_after_primary_sale(
+        //     ctx.accounts
+        //         .into_update_metadata_authority()
+        //         .with_signer(&[seeds]),
+        // )?;
 
         ctx.accounts.auction.add_resource(ctx.accounts.mint.key());
 
@@ -328,7 +244,6 @@ pub mod auction_factory {
                 ctx.accounts.auction.key().to_string()
             );
 
-            // burn token in auctions without bid?
             instructions::settle_auction::settle_empty_auction(ctx)?;
         } else {
             msg!(
@@ -348,9 +263,205 @@ pub mod auction_factory {
             instructions::settle_auction::settle(ctx)?;
         }
 
-        // close token accounts once tokens are gone?
-        // instructions::close_token_account::close
+        Ok(())
+    }
+
+    pub fn close_auction_token_account(
+        ctx: Context<CloseAuctionTokenAccount>,
+        _auction_factory_bump: u8,
+        _auction_bump: u8,
+        _sequence: u64
+    ) -> ProgramResult {
+        let authority_key = ctx.accounts.auction.authority.key();
+        let seq = ctx.accounts.auction.sequence.to_string();
+        let bump = ctx.accounts.auction.bump;
+
+        token::close_account(
+            ctx.accounts
+                .into_close_token_account_context()
+                .with_signer(&[&[
+                    AUX_SEED.as_ref(),
+                    authority_key.as_ref(),
+                    seq.as_ref(),
+                    &[bump],
+                ]])
+        )?;
 
         Ok(())
     }
+
+    /// ===================================
+    /// admin instructions              ///
+    /// ===================================
+
+    pub fn initialize_config(
+        ctx: Context<InitializeConfig>,
+        bump: u8,
+        max_supply: u32,
+    ) -> ProgramResult {
+        ctx.accounts.config.init(bump, max_supply);
+
+        Ok(())
+    }
+
+    pub fn initialize_auction_factory(
+        ctx: Context<InitializeAuctionFactory>,
+        bump: u8,
+        config_bump: u8,
+        data: AuctionFactoryData,
+    ) -> ProgramResult {
+        // initialize_uri_config
+        ctx.accounts.auction_factory.init(
+            bump,
+            ctx.accounts.payer.key(),
+            ctx.accounts.treasury.key(),
+            ctx.accounts.config.key(),
+            data,
+        );
+
+        Ok(())
+    }
+
+    // update config account address intentionally excluded since
+    // we treat config as a circular buffer. we should be able to use
+    // same config, forever.
+
+    pub fn add_uris_to_config(
+        ctx: Context<AddUrisToConfig>,
+        _auction_factory_bump: u8,
+        _config_bump: u8,
+        force_err_log: bool,
+        config_data: Vec<String>,
+    ) -> ProgramResult {
+        ctx.accounts.config.add_data(
+            ctx.accounts.auction_factory.sequence as usize,
+            config_data,
+            force_err_log
+        )?;
+
+        Ok(())
+    }
+
+    pub fn toggle_auction_factory_status(
+        ctx: Context<ModifyAuctionFactory>,
+        _bump: u8,
+    ) -> ProgramResult {
+        verify::verify_auction_factory_authority(
+            ctx.accounts.payer.key(),
+            ctx.accounts.auction_factory.authority,
+        )?;
+
+        let auction_factory_status = ctx.accounts.auction_factory.is_active;
+        let auction_factory = &mut ctx.accounts.auction_factory;
+
+        if auction_factory_status {
+            msg!("Pausing auction factory");
+            auction_factory.pause();
+        } else {
+            msg!("Resuming auction factory");
+            auction_factory.resume();
+        }
+
+        Ok(())
+    }
+
+    pub fn modify_auction_factory_data(
+        ctx: Context<ModifyAuctionFactory>,
+        _bump: u8,
+        data: AuctionFactoryData,
+    ) -> ProgramResult {
+        verify::verify_auction_factory_authority(
+            ctx.accounts.payer.key(),
+            ctx.accounts.auction_factory.authority,
+        )?;
+
+        let auction_factory = &mut ctx.accounts.auction_factory;
+
+        auction_factory.update_data(data);
+
+        Ok(())
+    }
+
+    pub fn update_authority(
+        ctx: Context<UpdateAuctionFactoryAuthority>,
+        _bump: u8,
+    ) -> ProgramResult {
+        verify::verify_auction_factory_authority(
+            ctx.accounts.payer.key(),
+            ctx.accounts.auction_factory.authority,
+        )?;
+
+        let auction_factory = &mut ctx.accounts.auction_factory;
+
+        auction_factory.update_authority(*ctx.accounts.new_authority.key);
+
+        Ok(())
+    }
+
+    pub fn update_treasury(ctx: Context<UpdateAuctionFactoryTreasury>, _bump: u8) -> ProgramResult {
+        verify::verify_auction_factory_authority(
+            ctx.accounts.payer.key(),
+            ctx.accounts.auction_factory.authority,
+        )?;
+
+        // (quest): can we check that a treasury account exists?
+        // if not, treasury funds will be lost again until updated.
+
+        let auction_factory = &mut ctx.accounts.auction_factory;
+
+        auction_factory.update_treasury(*ctx.accounts.treasury.key);
+
+        Ok(())
+    }
+
+    // auction factory will be the creator of all NFTs and thus receive any secondary royalties.
+    // we need this functionality to extract royalties from the auction factory
+    // to the designated treasury.
+    pub fn transfer_lamports_to_treasury(
+        ctx: Context<ModifyAuctionFactory>,
+        _bump: u8,
+    ) -> ProgramResult {
+        verify::verify_auction_factory_authority(
+            ctx.accounts.payer.key(),
+            ctx.accounts.auction_factory.authority,
+        )?;
+
+        // TODO: transfer lamports from auction_factory PDA to treasury.
+        // reminder: don't over-transfer & leave account empty so that garbage
+        // collector automatically closes the account.
+        // (quest): how to calculate number of lamports to transfer?
+
+        Ok(())
+    }
+}
+
+/// ====================================================================
+/// ixn helper function to  until i  can figure out how to combine   ///
+/// create 0...n auctions in the fn                                  ///
+/// ====================================================================
+
+pub fn create_auction_helper(
+    auction_factory: &mut Account<AuctionFactory>,
+    next_auction_bump: u8,
+    next_auction: &mut Account<Auction>,
+    current_auction: Option<&mut Account<Auction>>,
+) -> ProgramResult {
+    verify::verify_auction_factory_is_active(&auction_factory)?;
+
+    verify::verify_auction_address_for_factory(
+        auction_factory.sequence,
+        auction_factory.authority.key(),
+        next_auction.key(),
+    )?;
+
+    if let Some(curr_auction) = current_auction {
+        // ensure settled auction before creating a new auction, if we are past the first auction
+        verify::verify_current_auction_is_over(&curr_auction)?;
+    } else {
+        verify::verify_auction_factory_for_first_auction(&auction_factory)?;
+    }
+
+    instructions::create_auction::create(next_auction_bump, next_auction, auction_factory)?;
+
+    Ok(())
 }

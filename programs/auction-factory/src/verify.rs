@@ -6,7 +6,7 @@ use crate::{
     error::ErrorCode,
     structs::auction::Auction,
     structs::auction_factory::AuctionFactory,
-    util::{
+    util::general::{
         assert_initialized, assert_owned_by, get_auction_account_address, get_current_timestamp,
     }
 };
@@ -19,7 +19,7 @@ pub fn verify_auction_address_for_factory(
     // grab the derived current auction address and verify it matches the supplied address
     let (current_auction_address, _bump) = get_auction_account_address(sequence, auction_factory);
 
-    // TODO: use create public key from seed. should be cheaper.
+    // TODO: use create public key from seed. cheaper?
     if current_auction != current_auction_address {
         return Err(ErrorCode::AuctionAddressMismatch.into());
     }

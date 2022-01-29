@@ -1,9 +1,39 @@
 use anchor_lang::prelude::*;
 
 // local imports
-use crate::util::get_current_timestamp;
+use crate::util::general::get_current_timestamp;
 
-// (quest): what do all the derive params mean. i.e. PartialEq, Debug
+pub const AUCTION_FACTORY_ACCOUNT_SPACE: usize =
+    // discriminator
+    8 +
+    // bump
+    1 +
+    // sequence
+    8 +
+    // authority
+    32 +
+    // is_active
+    1 +
+    // auction factory data
+    (
+        // time_buffer
+        8 +
+        // min_bid_percentage_increase
+        8 +
+        // min_reserve_price
+        8 +
+        // duration
+        8
+    ) +
+    // initialized_at
+    8 +
+    // active_since
+    8 +
+    // treasury
+    32 +
+    // config
+    32;
+
 #[repr(C)]
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Debug)]
 pub struct AuctionFactoryData {
@@ -39,6 +69,9 @@ pub struct AuctionFactory {
     // address of the auction factory's treasury. post auction settlement, the winning bid
     // amount will be transferred here.
     pub treasury: Pubkey,
+    // account with uri config data. used in token minting, managed at the auction
+    // factory method, static across auctions.
+    pub config: Pubkey,
 }
 
 impl AuctionFactory {
@@ -47,6 +80,7 @@ impl AuctionFactory {
         bump: u8,
         authority: Pubkey,
         treasury: Pubkey,
+        config: Pubkey,
         data: AuctionFactoryData,
     ) {
         let current_timestamp = get_current_timestamp().unwrap();
@@ -54,12 +88,12 @@ impl AuctionFactory {
         self.bump = bump;
         self.sequence = 0;
         self.authority = authority;
-        self.treasury = treasury;
         self.is_active = false;
         self.data = data;
-
         self.initialized_at = current_timestamp;
         self.active_since = current_timestamp;
+        self.treasury = treasury;
+        self.config = config;
     }
 
     pub fn pause(&mut self) {
@@ -77,6 +111,7 @@ impl AuctionFactory {
     // so current auction sequence is actually
     // seq = 0: 0
     // seq > 0: seq-1
+    // note: do not use when using current_sequence as a nonce.
     pub fn get_current_sequence(&mut self) -> u64 {
         if self.sequence > 0 {
             return self.sequence.checked_sub(1).unwrap();

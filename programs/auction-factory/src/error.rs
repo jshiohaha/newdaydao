@@ -44,14 +44,28 @@ pub enum ErrorCode {
     TokenTransferFailed,
     #[msg("Treasury mismatch!")]
     TreasuryMismatch,
-    #[msg("GENERAL ERRROR")]
-    GeneralError,
-    #[msg("Numerical overflow error!")]
-    NumericalOverflowError,
     #[msg("Insufficient account balance!")]
     InsufficientAccountBalance,
     #[msg("Wrong settle auction endpoint!")]
     WrongSettleAuctionEndpoint,
     #[msg("Must supply resource to auction before settling!")]
     AuctionHasNoResourceAvailable,
+
+    #[msg("Config element too short. Config data elements must be at least 1 char in length.")]
+    ConfigElementTooShortError,
+    #[msg("0 is a reserved config element. Please use a different value.")]
+    ReservedConfigValueError,
+    #[msg("Config element too long. Must be less than max length!")]
+    ConfigElementTooLongError,
+
+    #[msg("Numerical overflow error!")]
+    NumericalOverflowError,
+    #[msg("Numerical underflow error!")]
+    NumericalUnderflowError,
+    #[msg("Checked REM error")]
+    CheckedRemError, // https://docs.rs/num-traits/0.2.14/num_traits/ops/checked/trait.CheckedRem.html
+    #[msg("Insufficient config error!")]
+    InsufficientConfigError,
+    #[msg("Forced error")]
+    ForcedError,
 }

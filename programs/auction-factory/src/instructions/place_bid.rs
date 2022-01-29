@@ -2,10 +2,8 @@ use anchor_lang::prelude::*;
 
 // local imports
 use crate::{
-    error::ErrorCode,
+    context::PlaceBid, error::ErrorCode, instructions::transfer::transfer_from_signer,
     structs::auction::Auction,
-    context::PlaceBid,
-    instructions::transfer::transfer_from_signer
 };
 
 pub fn return_losing_bid_amount(ctx: &Context<PlaceBid>) -> ProgramResult {
@@ -53,7 +51,7 @@ pub fn transfer_bid_amount(ctx: &Context<PlaceBid>, amount: u64) -> ProgramResul
 }
 
 pub fn place(amount: u64, bidder: Pubkey, auction: &mut Auction) -> ProgramResult {
-    auction.update_auction_with_bid(amount, bidder);
+    auction.update_auction_with_bid(amount, bidder)?;
 
     Ok(())
 }
