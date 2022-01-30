@@ -1,88 +1,51 @@
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
 import * as lodash from "lodash";
-import { TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
-import {
-    PublicKey,
-    SystemProgram,
-    Keypair,
-    SYSVAR_RENT_PUBKEY,
-    sendAndConfirmTransaction,
-    LAMPORTS_PER_SOL,
-} from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { PublicKey, SystemProgram, Keypair } from "@solana/web3.js";
 import * as assert from "assert";
-import { expect } from "chai";
 
-import { PdaConfig, Network } from "./types";
+import { PdaConfig } from "./types";
 import {
-    getAuctionAccountAddress,
-    getAuctionFactoryAccountAddress,
-    getMetadata,
-    getTokenMintAccount,
-    createAssociatedTokenAccountInstruction,
-    generate_mint_ixns,
-    generate_mint_accounts,
-    sleep,
-    getConfigAddress,
+    generateMintAccounts,
     generateConfigs,
-    getCurrentAuctionFactorySequence,
-    /////////
     getAccountBalance,
-    logAuctionAccountData,
     getAuctionAccountData,
-    getCreateAccountIxn,
-    generate_supply_resource_accounts,
+    generateSupplyResourceAccounts,
     logSupplyResourceData,
     getAuctionData,
     waitForAuctionToEnd,
     getAnchorEnv,
+    uuidFromPubkey,
 } from "./helpers";
 import {
-    TOKEN_METADATA_PROGRAM_ID,
-    AUX_FACTORY_PROGRAM_ID,
-    TOKEN_BURN_ADDRESS,
-} from "./utils";
+    getAuctionFactoryAccountAddress,
+    getAuctionAccountAddress,
+    getConfigAddress,
+    getTokenMintAccount,
+    getMetadata,
+} from "./account";
+import { expectThrowsAsync } from "./utils";
+import { TOKEN_METADATA_PROGRAM_ID } from "./constants";
 import { AuctionFactory as AuctionFactoryProgram } from "../target/types/auction_factory";
+import {
+    createAssociatedTokenAccountIxns,
+    generateMintIxns,
+    buildCreateAuctionIxn,
+} from "./ixn";
 
 const provider = anchor.Provider.env();
-// var network = web3.version.network
 anchor.setProvider(provider);
 
 const program = anchor.workspace
     .AuctionFactory as Program<AuctionFactoryProgram>;
 
-const myWallet = Keypair.fromSecretKey(
-    new Uint8Array(
-        JSON.parse(
-            require("fs").readFileSync(
-                "/Users/jacobshiohira/.config/solana/id.json",
-                "utf8"
-            )
-        )
-    )
-);
-
-export const expectThrowsAsync = async (method, errorMessage = undefined) => {
-    let error = null;
-    try {
-        await method();
-    } catch (err) {
-        error = err;
-    }
-    expect(error).to.be.an("Error");
-    if (errorMessage) {
-        expect(error.message).to.equal(errorMessage);
-    }
-};
-
 const network = getAnchorEnv();
 
-// TODO
-// no tests below test the scenario if someone tries to settle an auction
-// without a resource, but this program invocation will immediately fail
-// because of the anchor macros. they will prevent
-
-// in the case of no bidders, create a token account for the auction factory / burn addrress
+const walletPath = "";
+const myWallet = Keypair.fromSecretKey(
+    new Uint8Array(JSON.parse(require("fs").readFileSync(walletPath, "utf8")))
+);
 
 describe("execute basic auction factory functions", async () => {
     // warn: if this treasury has not been initialized, the settle auction test will fail
@@ -91,10 +54,10 @@ describe("execute basic auction factory functions", async () => {
     const updatedTreasury = Keypair.generate();
     const bidder = Keypair.generate();
 
-    const auctionFactoryAuthority = myWallet.publicKey;
-
+    const uuid = uuidFromPubkey(Keypair.generate().publicKey);
+    console.log("auction factory uuid: ", uuid);
     const [auctionFactoryAddress, auctionFactoryBump] =
-        await getAuctionFactoryAccountAddress(auctionFactoryAuthority);
+        await getAuctionFactoryAccountAddress(uuid);
     const auctionFactory: PdaConfig = {
         address: auctionFactoryAddress,
         bump: auctionFactoryBump,
@@ -132,9 +95,38 @@ describe("execute basic auction factory functions", async () => {
         assert.ok((configAccount.buffer as string[]).length === 0);
     });
 
+    it("attempt to initialize auction factory with invalid uuid", async () => {
+        expectThrowsAsync(async () => {
+            await program.rpc.initializeAuctionFactory(
+                auctionFactory.bump,
+                "INVALID", // bad length
+                configBump,
+                {
+                    duration: new anchor.BN(durationInSeconds),
+                    timeBuffer: new anchor.BN(timeBufferInSeconds), // currently unused
+                    minBidPercentageIncrease: new anchor.BN(
+                        minBidPercentageIncrease
+                    ), // percentage points
+                    minReservePrice: new anchor.BN(minReservePrice),
+                },
+                {
+                    accounts: {
+                        auctionFactory: auctionFactory.address,
+                        config: uriConfig.address,
+                        payer: myWallet.publicKey,
+                        treasury: treasury.publicKey,
+                        systemProgram: SystemProgram.programId,
+                    },
+                    signers: [myWallet],
+                }
+            );
+        });
+    });
+
     it("initialize auction factory", async () => {
         await program.rpc.initializeAuctionFactory(
             auctionFactory.bump,
+            uuid,
             configBump,
             {
                 duration: new anchor.BN(durationInSeconds),
@@ -152,7 +144,21 @@ describe("execute basic auction factory functions", async () => {
                     treasury: treasury.publicKey,
                     systemProgram: SystemProgram.programId,
                 },
-                signers: [myWallet],
+                // anchor account macro prevents from using a treasury that does not have any lamports,
+                // aka has not been created yet?
+                instructions: [
+                    SystemProgram.createAccount({
+                        fromPubkey: myWallet.publicKey,
+                        newAccountPubkey: treasury.publicKey,
+                        space: 5,
+                        lamports:
+                            await provider.connection.getMinimumBalanceForRentExemption(
+                                5
+                            ),
+                        programId: TOKEN_PROGRAM_ID,
+                    }),
+                ],
+                signers: [myWallet, treasury],
             }
         );
     });
@@ -170,12 +176,13 @@ describe("execute basic auction factory functions", async () => {
 
         expectThrowsAsync(async () => {
             await program.rpc.createFirstAuction(
+                auctionFactory.bump,
+                uuid,
                 auction.bump,
                 auctionFactoryAccount.sequence,
                 {
                     accounts: {
                         auctionFactory: auctionFactory.address,
-                        authority: auctionFactoryAccount.authority,
                         payer: myWallet.publicKey,
                         auction: auction.address,
                         systemProgram: SystemProgram.programId,
@@ -196,13 +203,17 @@ describe("execute basic auction factory functions", async () => {
             auctionFactory.address
         );
 
-        await program.rpc.toggleAuctionFactoryStatus(auctionFactory.bump, {
-            accounts: {
-                payer: myWallet.publicKey,
-                auctionFactory: auctionFactory.address,
-            },
-            signers: [myWallet],
-        });
+        await program.rpc.toggleAuctionFactoryStatus(
+            auctionFactory.bump,
+            uuid,
+            {
+                accounts: {
+                    payer: myWallet.publicKey,
+                    auctionFactory: auctionFactory.address,
+                },
+                signers: [myWallet],
+            }
+        );
 
         auctionFactoryAccount = await program.account.auctionFactory.fetch(
             auctionFactory.address
@@ -220,13 +231,17 @@ describe("execute basic auction factory functions", async () => {
         const status_before_program_invocation = auctionFactoryAccount.isActive;
 
         expectThrowsAsync(async () => {
-            await program.rpc.toggleAuctionFactoryStatus(auctionFactory.bump, {
-                accounts: {
-                    payer: fake_authority.publicKey,
-                    auctionFactory: auctionFactory.address,
-                },
-                signers: [fake_authority],
-            });
+            await program.rpc.toggleAuctionFactoryStatus(
+                auctionFactory.bump,
+                uuid,
+                {
+                    accounts: {
+                        payer: fake_authority.publicKey,
+                        auctionFactory: auctionFactory.address,
+                    },
+                    signers: [fake_authority],
+                }
+            );
         });
 
         auctionFactoryAccount = await program.account.auctionFactory.fetch(
@@ -249,6 +264,7 @@ describe("execute basic auction factory functions", async () => {
 
         await program.rpc.modifyAuctionFactoryData(
             auctionFactory.bump,
+            uuid,
             {
                 duration: new anchor.BN(auctionFactoryAccount.data.duration),
                 timeBuffer: new anchor.BN(
@@ -287,7 +303,7 @@ describe("execute basic auction factory functions", async () => {
             auctionFactory.address
         );
 
-        await program.rpc.updateTreasury(auctionFactory.bump, {
+        await program.rpc.updateTreasury(auctionFactory.bump, uuid, {
             accounts: {
                 payer: myWallet.publicKey,
                 auctionFactory: auctionFactory.address,
@@ -332,17 +348,17 @@ describe("execute basic auction factory functions", async () => {
             auctionFactory
         );
         const auction = getAuctionData(auctionsData);
-        const mintAccounts = await generate_mint_accounts(auction.address);
+        const mintAccounts = await generateMintAccounts(auction.address);
 
         expectThrowsAsync(async () => {
             await program.rpc.supplyResourceToAuction(
                 auctionFactory.bump,
+                uuid,
                 auction.bump,
                 uriConfig.bump,
                 auctionFactoryAccount.sequence,
                 {
-                    accounts: await generate_supply_resource_accounts(
-                        program,
+                    accounts: await generateSupplyResourceAccounts(
                         payer,
                         uriConfig.address,
                         auctionFactory.address,
@@ -354,13 +370,14 @@ describe("execute basic auction factory functions", async () => {
                     // does not use it. so, using instructions for now.
                     // source: https://github.com/project-serum/anchor/blob/5e8d335599f39357a2d1b6a1f4702275eecfc68b/ts/src/program/context.ts#L30-L41
                     instructions: [
-                        await getCreateAccountIxn(
+                        await buildCreateAuctionIxn(
                             program,
                             myWallet,
                             auctionFactory,
+                            uuid,
                             auctionsData
                         ),
-                        ...(await generate_mint_ixns(
+                        ...(await generateMintIxns(
                             program,
                             payer,
                             mintAccounts.mint.publicKey,
@@ -368,7 +385,7 @@ describe("execute basic auction factory functions", async () => {
                             auction.address,
                             auctionFactory.address,
                             auctionFactory.bump,
-                            auctionFactoryAccount.authority,
+                            uuid,
                             auctionFactoryAccount.sequence.toNumber(),
                             auction.address,
                             auction.bump
@@ -389,8 +406,8 @@ describe("execute basic auction factory functions", async () => {
         expectThrowsAsync(async () => {
             await program.rpc.addUrisToConfig(
                 auctionFactory.bump,
+                uuid,
                 configBump,
-                false,
                 new_uris_for_empty_config,
                 {
                     accounts: {
@@ -412,8 +429,8 @@ describe("execute basic auction factory functions", async () => {
 
         await program.rpc.addUrisToConfig(
             auctionFactory.bump,
+            uuid,
             configBump,
-            false,
             new_uris_for_empty_config,
             {
                 accounts: {
@@ -449,7 +466,7 @@ describe("execute basic auction factory functions", async () => {
             auctionFactory
         );
         const auction = getAuctionData(auctionsData);
-        const mintAccounts = await generate_mint_accounts(auction.address);
+        const mintAccounts = await generateMintAccounts(auction.address);
 
         await logSupplyResourceData(
             program,
@@ -460,12 +477,12 @@ describe("execute basic auction factory functions", async () => {
 
         await program.rpc.supplyResourceToAuction(
             auctionFactory.bump,
+            uuid,
             auction.bump,
             uriConfig.bump,
             auctionFactoryAccount.sequence,
             {
-                accounts: await generate_supply_resource_accounts(
-                    program,
+                accounts: await generateSupplyResourceAccounts(
                     payer,
                     uriConfig.address,
                     auctionFactory.address,
@@ -477,13 +494,14 @@ describe("execute basic auction factory functions", async () => {
                 // does not use it. so, using instructions for now.
                 // source: https://github.com/project-serum/anchor/blob/5e8d335599f39357a2d1b6a1f4702275eecfc68b/ts/src/program/context.ts#L30-L41
                 instructions: [
-                    await getCreateAccountIxn(
+                    await buildCreateAuctionIxn(
                         program,
                         myWallet,
                         auctionFactory,
+                        uuid,
                         auctionsData
                     ),
-                    ...(await generate_mint_ixns(
+                    ...(await generateMintIxns(
                         program,
                         payer,
                         mintAccounts.mint.publicKey,
@@ -491,7 +509,7 @@ describe("execute basic auction factory functions", async () => {
                         auction.address,
                         auctionFactory.address,
                         auctionFactory.bump,
-                        auctionFactoryAccount.authority,
+                        uuid,
                         auctionFactoryAccount.sequence.toNumber(),
                         auction.address,
                         auction.bump
@@ -521,7 +539,7 @@ describe("execute basic auction factory functions", async () => {
         const configAccount = await program.account.config.fetch(
             uriConfig.address
         );
-        console.log('config buffer: ', configAccount.buffer as string[]);
+        console.log("config buffer: ", configAccount.buffer as string[]);
     });
 
     it("attempt to initialize first auction again, and fail 😈", async () => {
@@ -539,13 +557,13 @@ describe("execute basic auction factory functions", async () => {
         expectThrowsAsync(async () => {
             await program.rpc.createFirstAuction(
                 auctionFactory.bump,
+                uuid,
                 auctionBump,
                 new anchor.BN(initialSequence),
                 {
                     accounts: {
                         payer: myWallet.publicKey,
                         auctionFactory: auctionFactory.address,
-                        authority: auctionFactoryAccount.authority,
                         auction: auctionAddress,
                         systemProgram: SystemProgram.programId,
                     },
@@ -571,17 +589,17 @@ describe("execute basic auction factory functions", async () => {
             auctionFactory
         );
         const auction = getAuctionData(auctionsData);
-        const mintAccounts = await generate_mint_accounts(auction.address);
+        const mintAccounts = await generateMintAccounts(auction.address);
 
         expectThrowsAsync(async () => {
             await program.rpc.supplyResourceToAuction(
                 auctionFactory.bump,
+                uuid,
                 auction.bump,
                 uriConfig.bump,
                 auctionFactoryAccount.sequence,
                 {
-                    accounts: await generate_supply_resource_accounts(
-                        program,
+                    accounts: await generateSupplyResourceAccounts(
                         payer,
                         uriConfig.address,
                         auctionFactory.address,
@@ -593,7 +611,7 @@ describe("execute basic auction factory functions", async () => {
                     // does not use it. so, using instructions for now.
                     // source: https://github.com/project-serum/anchor/blob/5e8d335599f39357a2d1b6a1f4702275eecfc68b/ts/src/program/context.ts#L30-L41
                     instructions: [
-                        ...(await generate_mint_ixns(
+                        ...(await generateMintIxns(
                             program,
                             payer,
                             mintAccounts.mint.publicKey,
@@ -601,7 +619,7 @@ describe("execute basic auction factory functions", async () => {
                             auction.address,
                             auctionFactory.address,
                             auctionFactory.bump,
-                            auctionFactoryAccount.authority,
+                            uuid,
                             auctionFactoryAccount.sequence.toNumber(),
                             auction.address,
                             auction.bump
@@ -630,6 +648,7 @@ describe("execute basic auction factory functions", async () => {
         expectThrowsAsync(async () => {
             await program.rpc.createNextAuction(
                 auctionFactory.bump,
+                uuid,
                 auctionsData.currentAuctionBump,
                 auctionsData.nextAuctionBump,
                 currentAuctionAccount.sequence,
@@ -637,7 +656,6 @@ describe("execute basic auction factory functions", async () => {
                 {
                     accounts: {
                         payer: myWallet.publicKey,
-                        authority: auctionFactoryAccount.authority,
                         auctionFactory: auctionFactory.address,
                         currentAuction: auctionsData.currentAuction,
                         nextAuction: auctionsData.nextAuction,
@@ -669,8 +687,8 @@ describe("execute basic auction factory functions", async () => {
 
         await program.rpc.addUrisToConfig(
             auctionFactory.bump,
+            uuid,
             configBump,
-            false,
             new_uris_for_empty_config,
             {
                 accounts: {
@@ -704,8 +722,8 @@ describe("execute basic auction factory functions", async () => {
 
         await program.rpc.addUrisToConfig(
             auctionFactory.bump,
+            uuid,
             configBump,
-            false,
             generateConfigs(10),
             {
                 accounts: {
@@ -753,15 +771,14 @@ describe("execute basic auction factory functions", async () => {
         const mintKey = new PublicKey(auctionAccount.resource.toString());
         const [bidderTokenAccount, bidderTokenAccountBump] =
             await getTokenMintAccount(auctionAccount.bidder, mintKey);
-
         const metadata = await getMetadata(mintKey);
-
         const [auctionTokenAccount, _auctionTokenAccountBump] =
             await getTokenMintAccount(auctionsData.currentAuction, mintKey);
 
         await program.rpc.settleAuction(
             bidderTokenAccountBump,
             auctionFactory.bump,
+            uuid,
             auctionsData.currentAuctionBump,
             auctionAccount.sequence,
             {
@@ -769,7 +786,6 @@ describe("execute basic auction factory functions", async () => {
                     payer: myWallet.publicKey,
                     treasury: auctionFactoryAccount.treasury,
                     metadata,
-                    authority: auctionFactoryAccount.authority,
                     auctionFactory: auctionFactory.address,
                     auction: auctionsData.currentAuction,
                     mint: mintKey,
@@ -828,6 +844,7 @@ describe("execute basic auction factory functions", async () => {
             await program.rpc.settleAuction(
                 bidderTokenAccountBump,
                 auctionFactory.bump,
+                uuid,
                 auctionsData.currentAuctionBump,
                 auctionAccount.sequence,
                 {
@@ -835,7 +852,6 @@ describe("execute basic auction factory functions", async () => {
                         payer: myWallet.publicKey,
                         treasury: auctionFactoryAccount.treasury,
                         metadata,
-                        authority: auctionFactoryAccount.authority,
                         auctionFactory: auctionFactory.address,
                         auction: auctionsData.currentAuction,
                         mint: mintKey,
@@ -875,13 +891,13 @@ describe("execute basic auction factory functions", async () => {
 
         await program.rpc.closeAuctionTokenAccount(
             auctionFactory.bump,
+            uuid,
             auctionBump,
             new anchor.BN(firstAcutionSequence),
             {
                 accounts: {
                     payer: myWallet.publicKey,
                     treasury: auctionFactoryAccount.treasury,
-                    authority: auctionFactoryAccount.authority,
                     auctionFactory: auctionFactory.address,
                     auction: auctionAddress,
                     tokenProgram: TOKEN_PROGRAM_ID,
@@ -926,7 +942,7 @@ describe("execute basic auction factory functions", async () => {
             auctionFactory
         );
         const auction = getAuctionData(auctionsData);
-        const mintAccounts = await generate_mint_accounts(auction.address);
+        const mintAccounts = await generateMintAccounts(auction.address);
 
         await logSupplyResourceData(
             program,
@@ -935,21 +951,14 @@ describe("execute basic auction factory functions", async () => {
             mintAccounts
         );
 
-        let configAccount = await program.account.config.fetch(
-            uriConfig.address
-        );
-
-        console.log('updateIdx: ', configAccount.updateIdx);
-        console.log('maxSupply: ', configAccount.maxSupply);
-
         await program.rpc.supplyResourceToAuction(
             auctionFactory.bump,
+            uuid,
             auction.bump,
             uriConfig.bump,
             auctionFactoryAccount.sequence,
             {
-                accounts: await generate_supply_resource_accounts(
-                    program,
+                accounts: await generateSupplyResourceAccounts(
                     payer,
                     uriConfig.address,
                     auctionFactory.address,
@@ -961,13 +970,14 @@ describe("execute basic auction factory functions", async () => {
                 // does not use it. so, using instructions for now.
                 // source: https://github.com/project-serum/anchor/blob/5e8d335599f39357a2d1b6a1f4702275eecfc68b/ts/src/program/context.ts#L30-L41
                 instructions: [
-                    await getCreateAccountIxn(
+                    await buildCreateAuctionIxn(
                         program,
                         myWallet,
                         auctionFactory,
+                        uuid,
                         auctionsData
                     ),
-                    ...await generate_mint_ixns(
+                    ...(await generateMintIxns(
                         program,
                         payer,
                         mintAccounts.mint.publicKey,
@@ -975,11 +985,11 @@ describe("execute basic auction factory functions", async () => {
                         auction.address,
                         auctionFactory.address,
                         auctionFactory.bump,
-                        auctionFactoryAccount.authority,
+                        uuid,
                         auctionFactoryAccount.sequence.toNumber(),
                         auction.address,
                         auction.bump
-                    ),
+                    )),
                 ],
                 signers: [mintAccounts.mint],
             }
@@ -1011,10 +1021,6 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("place a valid bid", async () => {
-        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-            auctionFactory.address
-        );
-
         const auctionsData = await getAuctionAccountData(
             program,
             auctionFactory
@@ -1030,13 +1036,13 @@ describe("execute basic auction factory functions", async () => {
 
         await program.rpc.placeBid(
             auctionFactory.bump,
+            uuid,
             auctionsData.currentAuctionBump,
             auctionAccount.sequence,
             new anchor.BN(bidAmountInLamports),
             {
                 accounts: {
                     bidder: bidder.publicKey,
-                    authority: auctionFactoryAccount.authority,
                     leadingBidder: myWallet.publicKey,
                     auctionFactory: auctionFactory.address,
                     auction: auctionsData.currentAuction,
@@ -1066,14 +1072,12 @@ describe("execute basic auction factory functions", async () => {
         assert.ok(bids.length === 1);
         const winning_bid = bids[0];
         assert.ok(winning_bid.amount.toNumber() === bidAmountInLamports);
-        assert.ok(winning_bid.bidder.toString() === bidder.publicKey.toString());
+        assert.ok(
+            winning_bid.bidder.toString() === bidder.publicKey.toString()
+        );
     });
 
     it("current winning bidder attempts to place another bid, but fails since bidder is already winning", async () => {
-        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-            auctionFactory.address
-        );
-
         const auctionsData = await getAuctionAccountData(
             program,
             auctionFactory
@@ -1087,6 +1091,7 @@ describe("execute basic auction factory functions", async () => {
         expectThrowsAsync(async () => {
             await program.rpc.placeBid(
                 auctionFactory.bump,
+                uuid,
                 auctionsData.currentAuctionBump,
                 auctionAccount.sequence,
                 new anchor.BN(bidAmountInLamports),
@@ -1094,7 +1099,6 @@ describe("execute basic auction factory functions", async () => {
                     accounts: {
                         bidder: bidder.publicKey,
                         leadingBidder: auctionAccount.bidder,
-                        authority: auctionFactoryAccount.authority,
                         auctionFactory: auctionFactory.address,
                         auction: auctionsData.currentAuction,
                         systemProgram: SystemProgram.programId,
@@ -1113,10 +1117,6 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("place another valid bid", async () => {
-        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-            auctionFactory.address
-        );
-
         const auctionsData = await getAuctionAccountData(
             program,
             auctionFactory
@@ -1136,6 +1136,7 @@ describe("execute basic auction factory functions", async () => {
 
         await program.rpc.placeBid(
             auctionFactory.bump,
+            uuid,
             auctionsData.currentAuctionBump,
             auctionAccount.sequence,
             new anchor.BN(bidAmountInLamports),
@@ -1143,7 +1144,6 @@ describe("execute basic auction factory functions", async () => {
                 accounts: {
                     bidder: myWallet.publicKey,
                     leadingBidder: auctionAccount.bidder,
-                    authority: auctionFactoryAccount.authority,
                     auctionFactory: auctionFactory.address,
                     auction: auctionsData.currentAuction,
                     systemProgram: SystemProgram.programId,
@@ -1169,14 +1169,13 @@ describe("execute basic auction factory functions", async () => {
         assert.ok(bids.length === 2);
         const winning_bid = bids[1];
         assert.ok(winning_bid.amount.toNumber() === bidAmountInLamports);
-        assert.ok(winning_bid.bidder.toString() === myWallet.publicKey.toString());
+        assert.ok(
+            winning_bid.bidder.toString() === myWallet.publicKey.toString()
+        );
     });
 
     // place invalid bid, not big enough % diff
     it("new bidder attempts to place another bid, but fails due to invalid bid amount 😈", async () => {
-        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-            auctionFactory.address
-        );
         const auctionsData = await getAuctionAccountData(
             program,
             auctionFactory
@@ -1192,6 +1191,7 @@ describe("execute basic auction factory functions", async () => {
         expectThrowsAsync(async () => {
             await program.rpc.placeBid(
                 auctionFactory.bump,
+                uuid,
                 auctionsData.currentAuctionBump,
                 auctionAccount.sequence,
                 new anchor.BN(bidAmountInLamports),
@@ -1199,7 +1199,6 @@ describe("execute basic auction factory functions", async () => {
                     accounts: {
                         bidder: new_bidder.publicKey,
                         leadingBidder: auctionAccount.bidder,
-                        authority: auctionFactoryAccount.authority,
                         auctionFactory: auctionFactory.address,
                         auction: auctionsData.currentAuction,
                         systemProgram: SystemProgram.programId,
@@ -1234,10 +1233,6 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("attempt to place a valid bid after auction is over", async () => {
-        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-            auctionFactory.address
-        );
-
         const auctionsData = await getAuctionAccountData(
             program,
             auctionFactory
@@ -1255,13 +1250,13 @@ describe("execute basic auction factory functions", async () => {
         expectThrowsAsync(async () => {
             await program.rpc.placeBid(
                 auctionFactory.bump,
+                uuid,
                 auctionsData.currentAuctionBump,
                 auctionAccount.sequence,
                 new anchor.BN(bidAmountInLamports),
                 {
                     accounts: {
                         bidder: outOfTimeBidder.publicKey,
-                        authority: auctionFactoryAccount.authority,
                         leadingBidder: myWallet.publicKey,
                         auctionFactory: auctionFactory.address,
                         auction: auctionsData.currentAuction,
@@ -1279,7 +1274,9 @@ describe("execute basic auction factory functions", async () => {
             );
         });
 
-        auctionAccount = await program.account.auction.fetch(auctionsData.currentAuction);
+        auctionAccount = await program.account.auction.fetch(
+            auctionsData.currentAuction
+        );
 
         const winningAmountAfterBidAttempt = auctionAccount.amount.toNumber();
         const winningBidderAfterBidAttempt = auctionAccount.bidder.toString();
@@ -1325,6 +1322,7 @@ describe("execute basic auction factory functions", async () => {
             await program.rpc.settleAuction(
                 bidderTokenAccountBump,
                 auctionFactory.bump,
+                uuid,
                 auxBump,
                 new anchor.BN(3),
                 {
@@ -1332,7 +1330,6 @@ describe("execute basic auction factory functions", async () => {
                         payer: myWallet.publicKey,
                         treasury: auctionFactoryAccount.treasury,
                         metadata,
-                        authority: auctionFactoryAccount.authority,
                         auctionFactory: auctionFactory.address,
                         auction: auxAddress,
                         mint: mintKey,
@@ -1343,7 +1340,7 @@ describe("execute basic auction factory functions", async () => {
                         auctionTokenAccount,
                     },
                     instructions: [
-                        createAssociatedTokenAccountInstruction(
+                        createAssociatedTokenAccountIxns(
                             mintKey,
                             bidderTokenAccount,
                             auctionAccount.bidder, // owner
@@ -1357,10 +1354,6 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("attempt to settle auction with invalid treasury", async () => {
-        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-            auctionFactory.address
-        );
-
         const auctionsData = await getAuctionAccountData(
             program,
             auctionFactory
@@ -1375,13 +1368,16 @@ describe("execute basic auction factory functions", async () => {
 
         const metadata = await getMetadata(mintKey);
 
-        const [auctionTokenAccount, auctionTokenAccountBump] =
-            await getTokenMintAccount(auctionsData.currentAuction, mintKey);
+        const [auctionTokenAccount, _] = await getTokenMintAccount(
+            auctionsData.currentAuction,
+            mintKey
+        );
 
         expectThrowsAsync(async () => {
             await program.rpc.settleAuction(
                 bidderTokenAccountBump,
                 auctionFactory.bump,
+                uuid,
                 auctionsData.currentAuctionBump,
                 auctionAccount.sequence,
                 {
@@ -1389,7 +1385,6 @@ describe("execute basic auction factory functions", async () => {
                         payer: myWallet.publicKey,
                         treasury: Keypair.generate().publicKey,
                         metadata,
-                        authority: auctionFactoryAccount.authority,
                         auctionFactory: auctionFactory.address,
                         auction: auctionsData.currentAuction,
                         mint: mintKey,
@@ -1400,7 +1395,7 @@ describe("execute basic auction factory functions", async () => {
                         auctionTokenAccount,
                     },
                     instructions: [
-                        createAssociatedTokenAccountInstruction(
+                        createAssociatedTokenAccountIxns(
                             mintKey,
                             bidderTokenAccount,
                             auctionAccount.bidder, // owner
@@ -1443,6 +1438,7 @@ describe("execute basic auction factory functions", async () => {
             await program.rpc.settleAuction(
                 bidderTokenAccountBump,
                 auctionFactory.bump,
+                uuid,
                 auctionsData.currentAuctionBump,
                 auctionAccount.sequence,
                 {
@@ -1450,7 +1446,6 @@ describe("execute basic auction factory functions", async () => {
                         payer: myWallet.publicKey,
                         treasury: auctionFactoryAccount.treasury,
                         metadata,
-                        authority: auctionFactoryAccount.authority,
                         auctionFactory: auctionFactory.address,
                         auction: auctionsData.currentAuction,
                         mint: mintKey,
@@ -1461,7 +1456,7 @@ describe("execute basic auction factory functions", async () => {
                         auctionTokenAccount,
                     },
                     instructions: [
-                        createAssociatedTokenAccountInstruction(
+                        createAssociatedTokenAccountIxns(
                             mintKey,
                             bidderTokenAccount,
                             fakeAuctionWinner.publicKey, // owner
@@ -1500,20 +1495,22 @@ describe("execute basic auction factory functions", async () => {
         const [auctionTokenAccount, _auctionTokenAccountBump] =
             await getTokenMintAccount(auctionsData.currentAuction, mintKey);
 
-        const settleAuctionPreInstructions = auctionAccount.amount.toNumber() > 0
-            ? [
-                createAssociatedTokenAccountInstruction(
-                    mintKey,
-                    bidderTokenAccount,
-                    auctionAccount.bidder, // owner
-                    myWallet.publicKey // payer
-                ),
-            ]
-            : [];
+        const settleAuctionPreInstructions =
+            auctionAccount.amount.toNumber() > 0
+                ? [
+                      createAssociatedTokenAccountIxns(
+                          mintKey,
+                          bidderTokenAccount,
+                          auctionAccount.bidder, // owner
+                          myWallet.publicKey // payer
+                      ),
+                  ]
+                : [];
 
         await program.rpc.settleAuction(
             bidderTokenAccountBump,
             auctionFactory.bump,
+            uuid,
             auctionsData.currentAuctionBump,
             auctionAccount.sequence,
             {
@@ -1521,7 +1518,6 @@ describe("execute basic auction factory functions", async () => {
                     payer: myWallet.publicKey,
                     treasury: auctionFactoryAccount.treasury,
                     metadata,
-                    authority: auctionFactoryAccount.authority,
                     auctionFactory: auctionFactory.address,
                     auction: auctionsData.currentAuction,
                     mint: mintKey,
@@ -1529,14 +1525,16 @@ describe("execute basic auction factory functions", async () => {
                     tokenProgram: TOKEN_PROGRAM_ID,
                     systemProgram: SystemProgram.programId,
                     bidderTokenAccount: bidderTokenAccount,
-                    auctionTokenAccount
+                    auctionTokenAccount,
                 },
                 instructions: settleAuctionPreInstructions,
                 signers: [myWallet],
             }
         );
 
-        auctionAccount = await program.account.auction.fetch(auctionsData.currentAuction);
+        auctionAccount = await program.account.auction.fetch(
+            auctionsData.currentAuction
+        );
 
         assert.ok(auctionAccount.settled === true);
         assert.ok(
@@ -1568,51 +1566,9 @@ describe("execute basic auction factory functions", async () => {
         assert.ok(+auctionTokenAmount["value"]["amount"] === 0);
     });
 
-
-
-
-
-
-
-
-
-
-
     // done with main auction lifecycle 🙂
     // run: `cargo test buffer_tests` to test config buffer util tests
-
-    // TODO: dump auction factory monies to treasury
-    // TODO: update auction factory authority
-    // ===> is this even possible?
-
-    // // it("update auction factory authority", async () => {
-    // //     const newAuthority = Keypair.generate();
-
-    // //     let auctionFactoryAccount = await program.account.auctionFactory.fetch(
-    // //         auctionFactory.address
-    // //     );
-
-    // //     const authorityBeforeUpdate = auctionFactoryAccount.authority.toString();
-
-    // //     await program.rpc.updateAuthority(auctionFactory.bump, {
-    // //         accounts: {
-    // //             payer: myWallet.publicKey,
-    // //             auctionFactory: auctionFactory.address,
-    // //             newAuthority: newAuthority.publicKey,
-    // //         },
-    // //         // we only provide treasury sig to create account. in "real" client side call,
-    // //         // user should only provide treasury that has been established.
-    // //         signers: [myWallet],
-    // //     });
-
-    // //     auctionFactoryAccount = await program.account.auctionFactory.fetch(
-    // //         auctionFactory.address
-    // //     );
-
-    // //     assert.ok(
-    // //         auctionFactoryAccount.authority.toString() !== authorityBeforeUpdate
-    // //     );
-    // // });
+    // run: `cargo test update_vec_tests` to test vec util tests
 });
 
 // if (network === Network.Localnet) {
@@ -1711,7 +1667,6 @@ describe("execute basic auction factory functions", async () => {
 //                 await program.rpc.addUrisToConfig(
 //                     auctionFactory.bump,
 //                     configBump,
-//                     false,
 //                     new_uris_for_empty_config,
 //                     {
 //                         accounts: {

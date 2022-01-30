@@ -1,22 +1,19 @@
 use {
-    std::cmp,
     anchor_lang::prelude::*,
     anchor_spl::token::{Burn, CloseAccount, Mint, MintTo, Token, TokenAccount},
 };
 
 use crate::{
+    constant::{AUX_FACTORY_SEED, AUX_SEED, MAX_URI_LENGTH, URI_CONFIG_SEED},
     instructions::{
-        create_master_edition::CreateMasterEdition,
-        create_metadata::CreateMetadata,
-        transfer::TransferLamports,
-        update_metadata::UpdateMetadata,
+        create_master_edition::CreateMasterEdition, create_metadata::CreateMetadata,
+        transfer::TransferLamports, update_metadata::UpdateMetadata,
     },
     structs::{
         auction::{Auction, AUCTION_ACCOUNT_SPACE},
         auction_factory::{AuctionFactory, AuctionFactoryData, AUCTION_FACTORY_ACCOUNT_SPACE},
         config::Config,
     },
-    constant::{AUX_FACTORY_SEED, AUX_SEED, URI_CONFIG_SEED, MAX_URI_LENGTH}
 };
 
 /// =========================================
@@ -29,11 +26,12 @@ use crate::{
 //     constraint = config.to_account_info().data_len() >= CONFIG_ARRAY_START+4+(data.max_number_of_lines as usize)*CONFIG_LINE_SIZE + 4 + (data.max_number_of_lines.checked_div(8).ok_or(ErrorCode::NumericalOverflowError)? as usize))]
 // #[account(constraint= authority.data_is_empty() && authority.lamports() > 0 )]
 
-// candy_machine.data.uuid.as_bytes()
+// TODO: change auction_factory payer to uuid
 
 #[derive(Accounts)]
 #[instruction(
     auction_factory_bump: u8,
+    uuid: String,
     auction_bump: u8,
     sequence: u64
 )]
@@ -46,11 +44,10 @@ pub struct CreateTokenMint<'info> {
         constraint = token_mint_account.owner == auction.key()
     )]
     pub token_mint_account: Account<'info, TokenAccount>,
-    pub authority: AccountInfo<'info>,
     #[account(
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            authority.key().as_ref()
+            uuid.as_bytes(),
         ],
         bump = auction_factory_bump,
         constraint = auction_factory.to_account_info().owner == program_id,
@@ -60,7 +57,7 @@ pub struct CreateTokenMint<'info> {
         seeds = [
             AUX_SEED.as_bytes(),
             auction_factory.key().as_ref(),
-            sequence.to_string().as_bytes()
+            sequence.to_string().as_bytes(),
         ],
         bump = auction_bump,
         constraint = auction.to_account_info().owner == program_id,
@@ -73,17 +70,17 @@ pub struct CreateTokenMint<'info> {
 #[derive(Accounts)]
 #[instruction(
     auction_factory_bump: u8,
+    uuid: String,
     auction_bump: u8,
     sequence: u64
 )]
 pub struct CreateFirstAuction<'info> {
     pub payer: Signer<'info>,
-    pub authority: AccountInfo<'info>,
     #[account(
         mut,
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            authority.key().as_ref()
+            uuid.as_bytes(),
         ],
         bump = auction_factory_bump,
         constraint = auction_factory.to_account_info().owner == program_id,
@@ -108,6 +105,7 @@ pub struct CreateFirstAuction<'info> {
 #[derive(Accounts)]
 #[instruction(
     auction_factory_bump: u8,
+    uuid: String,
     current_auction_bump: u8,
     next_auction_bump: u8,
     current_seq: u64,
@@ -115,12 +113,11 @@ pub struct CreateFirstAuction<'info> {
 )]
 pub struct CreateNextAuction<'info> {
     pub payer: Signer<'info>,
-    pub authority: AccountInfo<'info>,
     #[account(
         mut,
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            authority.key().as_ref()
+            uuid.as_bytes(),
         ],
         bump = auction_factory_bump,
         constraint = auction_factory.to_account_info().owner == program_id,
@@ -156,6 +153,7 @@ pub struct CreateNextAuction<'info> {
 #[derive(Accounts)]
 #[instruction(
     auction_factory_bump: u8,
+    uuid: String,
     auction_bump: u8,
     config_bump: u8,
     sequence: u64
@@ -163,11 +161,10 @@ pub struct CreateNextAuction<'info> {
 pub struct SupplyResource<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-    pub authority: AccountInfo<'info>,
     #[account(
         mut,
         seeds = [
-            URI_CONFIG_SEED.as_ref(),
+            URI_CONFIG_SEED.as_bytes(),
         ],
         bump = config_bump,
     )]
@@ -175,7 +172,7 @@ pub struct SupplyResource<'info> {
     #[account(
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            authority.key().as_ref()
+            uuid.as_bytes(),
         ],
         bump = auction_factory_bump,
         constraint = auction_factory.to_account_info().owner == program_id,
@@ -224,6 +221,7 @@ pub struct SupplyResource<'info> {
 #[derive(Accounts)]
 #[instruction(
     auction_factory_bump: u8,
+    uuid: String,
     auction_bump: u8,
     sequence: u64,
     amount: u64
@@ -233,12 +231,11 @@ pub struct PlaceBid<'info> {
     pub bidder: Signer<'info>,
     #[account(mut)]
     pub leading_bidder: AccountInfo<'info>,
-    pub authority: AccountInfo<'info>,
     #[account(
         mut,
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            authority.key().as_ref()
+            uuid.as_bytes(),
         ],
         bump = auction_factory_bump,
         constraint = auction_factory.to_account_info().owner == program_id,
@@ -262,17 +259,17 @@ pub struct PlaceBid<'info> {
 #[instruction(
     bidder_token_account_bump: u8,
     auction_factory_bump: u8,
+    uuid: String,
     auction_bump: u8,
     sequence: u64
 )]
 pub struct SettleAuction<'info> {
     pub payer: Signer<'info>,
-    pub authority: AccountInfo<'info>,
     #[account(
         mut,
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            authority.key().as_ref()
+            uuid.as_bytes(),
         ],
         bump = auction_factory_bump,
         constraint = auction_factory.to_account_info().owner == program_id,
@@ -302,6 +299,7 @@ pub struct SettleAuction<'info> {
     pub treasury: AccountInfo<'info>,
     #[account(mut)]
     pub metadata: AccountInfo<'info>,
+    // not used in the case of auctions without any bids
     #[account(mut)]
     pub bidder_token_account: AccountInfo<'info>,
     #[account(
@@ -320,17 +318,17 @@ pub struct SettleAuction<'info> {
 #[derive(Accounts)]
 #[instruction(
     auction_factory_bump: u8,
+    uuid: String,
     auction_bump: u8,
     sequence: u64
 )]
 pub struct CloseAuctionTokenAccount<'info> {
     pub payer: Signer<'info>,
-    pub authority: AccountInfo<'info>,
     #[account(
         mut,
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            authority.key().as_ref()
+            uuid.as_bytes(),
         ],
         bump = auction_factory_bump,
         constraint = auction_factory.to_account_info().owner == program_id,
@@ -373,7 +371,7 @@ pub struct InitializeConfig<'info> {
     pub payer: Signer<'info>,
     #[account(init,
         seeds = [
-            URI_CONFIG_SEED.as_ref(),
+            URI_CONFIG_SEED.as_bytes(),
         ],
         bump = bump,
         payer = payer,
@@ -385,14 +383,22 @@ pub struct InitializeConfig<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(bump: u8, config_bump: u8, data: AuctionFactoryData)]
+#[instruction(
+    bump: u8,
+    uuid: String,
+    config_bump: u8,
+    data: AuctionFactoryData
+)]
 pub struct InitializeAuctionFactory<'info> {
     // payer is initial auction factory authority
     pub payer: Signer<'info>,
+    // is this sufficient to verify treasury account exists? if not, there is risk treasury funds
+    // will be lost again until updated.
+    #[account(constraint= treasury.lamports() > 0)]
     pub treasury: AccountInfo<'info>,
     #[account(
         seeds = [
-            URI_CONFIG_SEED.as_ref(),
+            URI_CONFIG_SEED.as_bytes(),
         ],
         bump = config_bump,
         constraint = config.to_account_info().owner == program_id,
@@ -401,8 +407,7 @@ pub struct InitializeAuctionFactory<'info> {
     #[account(init,
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            // TODO: change this
-            payer.key().as_ref()
+            uuid.as_bytes()
         ],
         bump = bump,
         payer = payer,
@@ -414,13 +419,13 @@ pub struct InitializeAuctionFactory<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(bump: u8)]
+#[instruction(bump: u8, uuid: String)]
 pub struct ModifyAuctionFactory<'info> {
     pub payer: Signer<'info>,
     #[account(mut,
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            payer.key().as_ref()
+            uuid.as_bytes()
         ],
         bump = bump,
         constraint = auction_factory.authority.key() == payer.key(),
@@ -430,14 +435,14 @@ pub struct ModifyAuctionFactory<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(bump: u8)]
+#[instruction(bump: u8, uuid: String)]
 pub struct UpdateAuctionFactoryAuthority<'info> {
     pub payer: Signer<'info>,
     pub new_authority: AccountInfo<'info>,
     #[account(mut,
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            payer.key().as_ref()
+            uuid.as_bytes()
         ],
         bump = bump,
         constraint = auction_factory.authority.key() == payer.key(),
@@ -447,29 +452,32 @@ pub struct UpdateAuctionFactoryAuthority<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(auction_factory_bump: u8)]
+#[instruction(auction_factory_bump: u8, uuid: String)]
 pub struct UpdateAuctionFactoryTreasury<'info> {
     pub payer: Signer<'info>,
     #[account(mut,
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            payer.key().as_ref()
+            uuid.as_bytes()
         ],
         bump = auction_factory_bump,
         constraint = auction_factory.authority.key() == payer.key(),
         constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
+    // is this sufficient to verify treasury account exists? if not, there is risk treasury funds
+    // will be lost again until updated.
+    #[account(constraint= treasury.lamports() > 0)]
     pub treasury: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
-#[instruction(auction_factory_bump: u8, config_bump: u8, force_err_log: bool)]
+#[instruction(auction_factory_bump: u8, uuid: String, config_bump: u8)]
 pub struct AddUrisToConfig<'info> {
     pub payer: Signer<'info>,
     #[account(mut,
         seeds = [
-            URI_CONFIG_SEED.as_ref(),
+            URI_CONFIG_SEED.as_bytes(),
         ],
         bump = config_bump,
     )]
@@ -477,7 +485,7 @@ pub struct AddUrisToConfig<'info> {
     #[account(
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
-            payer.key().as_ref()
+            uuid.as_bytes()
         ],
         bump = auction_factory_bump,
         constraint = auction_factory.authority.key() == payer.key(),
@@ -535,7 +543,9 @@ impl<'info> SettleAuction<'info> {
 }
 
 impl<'info> CloseAuctionTokenAccount<'info> {
-    pub fn into_close_token_account_context(&self) -> CpiContext<'_, '_, '_, 'info, CloseAccount<'info>> {
+    pub fn into_close_token_account_context(
+        &self,
+    ) -> CpiContext<'_, '_, '_, 'info, CloseAccount<'info>> {
         let cpi_program = self.token_program.to_account_info();
 
         let cpi_accounts = CloseAccount {
@@ -606,8 +616,6 @@ impl<'info> SupplyResource<'info> {
     }
 }
 
-// account spacing
-
 impl<'info> InitializeConfig<'info> {
     // 10 MB is max account storage size. max uri len in metaplex metadata standard is 200.
     // assume max str len for upper bound when determining max_supply, e.g. 100.
@@ -620,7 +628,7 @@ impl<'info> InitializeConfig<'info> {
     // again, a bit annoying.
 
     // most arweave hashes i have seen in my (non-exhaustive) search are 43 chars long
-    // without prepended url constant. set max uri 75 for now, some extra room just in case. 
+    // without prepended url constant. set max uri 75 for now, some extra room just in case.
 
     // max account size is 10280. if user specifies bad combo of max_supply and MAX_URI_LENGTH
     // that is greater than that, we will let tx fail in solana rather than setting account size

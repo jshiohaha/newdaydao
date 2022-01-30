@@ -1,212 +1,33 @@
-import * as anchor from "@project-serum/anchor";
 import {
     PublicKey,
     SystemProgram,
-    TransactionInstruction,
     Keypair,
     SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
 import { Program } from "@project-serum/anchor";
 import * as assert from "assert";
-import * as lodash from 'lodash';
+import * as lodash from "lodash";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
-import { TOKEN_PROGRAM_ID, Token, MintLayout } from "@solana/spl-token";
-
-import { PdaConfig, AuctionsData, Network } from './types';
+import { PdaConfig, AuctionsData, Network } from "./types";
 import {
-    AUX_FACTORY_PROGRAM_ID,
-    AUX_SEED,
-    AUX_FAX_SEED,
     TOKEN_METADATA_PROGRAM_ID,
-    SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
-    URI_CONFIG_SEED,
     DEFAULT_ALPHABET,
-} from "./utils";
-
+} from "./constants";
+import {
+    getAuctionAccountAddress,
+    getTokenMintAccount,
+    getMetadata,
+    getMasterEdition
+} from './account';
 import { AuctionFactory as AuctionFactoryProgram } from "../target/types/auction_factory";
+import { sleep } from './utils';
 
-export const sleep = (ms: number) => {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-};
+export function uuidFromPubkey(account: PublicKey) {
+    return account.toBase58().slice(0, 10);
+}
 
-export const getAuctionFactoryAccountAddress = async (authority: PublicKey) => {
-    return await PublicKey.findProgramAddress(
-        [
-            Buffer.from(AUX_FAX_SEED),
-            // Buffer.from(uuid),
-            authority.toBytes()
-        ],
-        AUX_FACTORY_PROGRAM_ID
-    );
-};
-
-export const getAuctionAccountAddress = async (
-    sequence: number,
-    auctionFactory: PublicKey
-) => {
-    return await PublicKey.findProgramAddress(
-        [
-            Buffer.from(AUX_SEED),
-            auctionFactory.toBytes(),
-            Buffer.from(sequence.toString()),
-        ],
-        AUX_FACTORY_PROGRAM_ID
-    );
-};
-
-// maybe we should allow to chnage config
-export const getConfigAddress = async (
-    // authority: PublicKey
-) => {
-    return await PublicKey.findProgramAddress(
-        [Buffer.from(URI_CONFIG_SEED)],
-        AUX_FACTORY_PROGRAM_ID
-    );
-};
-
-export const getMasterEdition = async (mint: PublicKey): Promise<PublicKey> => {
-    return (
-        await PublicKey.findProgramAddress(
-            [
-                Buffer.from("metadata"),
-                TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-                mint.toBuffer(),
-                Buffer.from("edition"),
-            ],
-            TOKEN_METADATA_PROGRAM_ID
-        )
-    )[0];
-};
-
-export const getMetadata = async (mint: PublicKey): Promise<PublicKey> => {
-    return (
-        await PublicKey.findProgramAddress(
-            [
-                Buffer.from("metadata"),
-                TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-                mint.toBuffer(),
-            ],
-            TOKEN_METADATA_PROGRAM_ID
-        )
-    )[0];
-};
-
-export const getTokenWallet = async (wallet: PublicKey, mint: PublicKey) => {
-    return (
-        await PublicKey.findProgramAddress(
-            [wallet.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
-            SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID
-        )
-    )[0];
-};
-
-export const createAssociatedTokenAccountInstruction = (
-    mint: PublicKey,
-    associatedAccount: PublicKey,
-    owner: PublicKey,
-    payer: PublicKey
-) => {
-    let keys = [
-        { pubkey: payer, isSigner: true, isWritable: true },
-        { pubkey: associatedAccount, isSigner: false, isWritable: true },
-        { pubkey: owner, isSigner: false, isWritable: false },
-        { pubkey: mint, isSigner: false, isWritable: false },
-        {
-            pubkey: SystemProgram.programId,
-            isSigner: false,
-            isWritable: false,
-        },
-        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-        {
-            pubkey: SYSVAR_RENT_PUBKEY,
-            isSigner: false,
-            isWritable: false,
-        },
-    ];
-    return new TransactionInstruction({
-        keys,
-        programId: SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
-        data: Buffer.alloc(0),
-    });
-};
-
-////////
-
-export const getAssociatedTokenAccountAddress = async (
-    owner: PublicKey,
-    mint: PublicKey
-) => {
-    return await PublicKey.findProgramAddress(
-        [owner.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
-        SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID
-    );
-};
-
-export const getTokenMintAccount = async (
-    owner: PublicKey,
-    cardMint: PublicKey
-) => {
-    return await getAssociatedTokenAccountAddress(owner, cardMint);
-};
-
-export const generate_mint_ixns = async (
-    program: Program<AuctionFactoryProgram>,
-    payer: PublicKey,
-    mint: PublicKey,
-    token_account: PublicKey,
-    owner: PublicKey,
-    auctionFactoryAddress: PublicKey,
-    auctionFactoryBump: any,
-    afAuthority: PublicKey,
-    afSequence: number,
-    auctionAddress: PublicKey,
-    auctionBump: any
-) => {
-    return [
-        SystemProgram.createAccount({
-            fromPubkey: payer, // mintConfig.authority
-            newAccountPubkey: mint,
-            space: MintLayout.span,
-            lamports:
-                await program.provider.connection.getMinimumBalanceForRentExemption(
-                    MintLayout.span
-                ),
-            programId: TOKEN_PROGRAM_ID,
-        }),
-        //init the mint
-        Token.createInitMintInstruction(
-            TOKEN_PROGRAM_ID,
-            mint,
-            0,
-            owner,
-            owner
-        ),
-        // create token account for new token
-        createAssociatedTokenAccountInstruction(
-            mint,
-            token_account,
-            owner, // owner
-            payer // payer
-        ),
-        program.instruction.mintToAuction(
-            auctionFactoryBump,
-            auctionBump,
-            new anchor.BN(afSequence),
-            {
-                accounts: {
-                    mint: mint,
-                    authority: afAuthority,
-                    tokenMintAccount: token_account,
-                    auctionFactory: auctionFactoryAddress,
-                    auction: auctionAddress,
-                    tokenProgram: TOKEN_PROGRAM_ID,
-                },
-            }
-        ),
-    ];
-};
-
-export const generate_mint_accounts = async (auction: PublicKey) => {
+export const generateMintAccounts = async (auction: PublicKey) => {
     const mint = Keypair.generate();
     const metadata = await getMetadata(mint.publicKey);
     const masterEdition = await getMasterEdition(mint.publicKey);
@@ -255,12 +76,11 @@ export const generateId = (
         .join("");
 };
 
-export const generateConfigs = (
-    n: number,
-    configLen: number = 10
-) => {
-    return Array(n).fill(0).map((_el,_idx) => generateId(configLen));
-}
+export const generateConfigs = (n: number, configLen: number = 10) => {
+    return Array(n)
+        .fill(0)
+        .map((_el, _idx) => generateId(configLen));
+};
 
 // =============================
 
@@ -320,13 +140,11 @@ export const getAuctionAccountData = async (
         } as AuctionsData;
     }
 
-    // console.log('currentSequence: ', currentSequence);
-    // console.log('auctionFactoryAccount.sequence: ', auctionFactoryAccount.sequence.toNumber());
-
-    const [nextAuctionAddress, nextAuctionBump] = await getAuctionAccountAddress(
-        auctionFactoryAccount.sequence.toNumber(),
-        auctionFactory.address
-    );
+    const [nextAuctionAddress, nextAuctionBump] =
+        await getAuctionAccountAddress(
+            auctionFactoryAccount.sequence.toNumber(),
+            auctionFactory.address
+        );
 
     return {
         currentAuction: auctionAddress,
@@ -334,77 +152,19 @@ export const getAuctionAccountData = async (
         nextAuction: nextAuctionAddress,
         nextAuctionBump: nextAuctionBump,
     };
-}
+};
 
-export const getCreateAccountIxn = async (
-    program: Program<AuctionFactoryProgram>,
-    wallet: Keypair,
-    auctionFactory: PdaConfig,
-    auctionsData: AuctionsData
-) => {
-    const auctionFactoryAccount = await program.account.auctionFactory.fetch(
-        auctionFactory.address
-    );
 
-    if (auctionsData.nextAuction === undefined) {
-        return await program.instruction.createFirstAuction(
-            auctionFactory.bump,
-            auctionsData.currentAuctionBump,
-            auctionFactoryAccount.sequence, // first auction sequence == 0
-            {
-                accounts: {
-                    payer: wallet.publicKey,
-                    auctionFactory: auctionFactory.address,
-                    authority: auctionFactoryAccount.authority,
-                    auction: auctionsData.currentAuction,
-                    systemProgram: SystemProgram.programId,
-                },
-                signers: [wallet],
-            }
-        );
-    }
-
-    const currentSequence = await getCurrentAuctionFactorySequence(
-        program,
-        auctionFactory.address
-    );
-
-    return await program.instruction.createNextAuction(
-        auctionFactory.bump,
-        auctionsData.currentAuctionBump,
-        auctionsData.nextAuctionBump,
-        new anchor.BN(currentSequence),
-        auctionFactoryAccount.sequence,
-        {
-            accounts: {
-                payer: wallet.publicKey,
-                auctionFactory: auctionFactory.address,
-                authority: auctionFactoryAccount.authority,
-                currentAuction: auctionsData.currentAuction,
-                nextAuction: auctionsData.nextAuction,
-                systemProgram: SystemProgram.programId,
-            },
-            signers: [wallet],
-        }
-    );
-}
-
-export const generate_supply_resource_accounts = async (
-    program: Program<AuctionFactoryProgram>,
+export const generateSupplyResourceAccounts = async (
     payer: PublicKey,
     config: PublicKey,
     auctionFactory: PublicKey,
     auction: PublicKey,
-    mintAccounts: any,
+    mintAccounts: any
 ) => {
-    const auctionFactoryAccount = await program.account.auctionFactory.fetch(
-        auctionFactory
-    );
-
     return {
         payer,
         config,
-        authority: auctionFactoryAccount.authority,
         auction,
         auctionFactory,
         metadata: mintAccounts.metadata,
@@ -416,7 +176,7 @@ export const generate_supply_resource_accounts = async (
         systemProgram: SystemProgram.programId,
         rent: SYSVAR_RENT_PUBKEY,
     } as any;
-}
+};
 
 export const logSupplyResourceData = async (
     program: Program<AuctionFactoryProgram>,
@@ -433,10 +193,7 @@ export const logSupplyResourceData = async (
     );
     console.log("metadata: ", mintAccounts.metadata.toString());
     console.log("master edition: ", mintAccounts.masterEdition.toString());
-    console.log(
-        "mint key: ",
-        mintAccounts.mint.publicKey.toString()
-    );
+    console.log("mint key: ", mintAccounts.mint.publicKey.toString());
     console.log(
         "auction token account: ",
         mintAccounts.tokenAccount.toString()
@@ -447,35 +204,26 @@ export const logSupplyResourceData = async (
         "auction factory sequence ",
         auctionFactoryAccount.sequence.toNumber()
     );
-    console.log(
-        "============================================================"
-    );
-}
+    console.log("============================================================");
+};
 
-export const getAuctionData = (
-    auctionsData: AuctionsData
-): PdaConfig => {
+export const getAuctionData = (auctionsData: AuctionsData): PdaConfig => {
     return auctionsData.nextAuction === undefined
-        ? (
-            {
-                address: auctionsData.currentAuction,
-                bump: auctionsData.currentAuctionBump
-            }
-        ) : (
-            {
-                address: auctionsData.nextAuction,
-                bump: auctionsData.nextAuctionBump
-            }
-        )
-}
+        ? {
+              address: auctionsData.currentAuction,
+              bump: auctionsData.currentAuctionBump,
+          }
+        : {
+              address: auctionsData.nextAuction,
+              bump: auctionsData.nextAuctionBump,
+          };
+};
 
 export const waitForAuctionToEnd = async (
     program: Program<AuctionFactoryProgram>,
     auction: PublicKey
 ) => {
-    let auctionAccount = await program.account.auction.fetch(
-        auction
-    );
+    let auctionAccount = await program.account.auction.fetch(auction);
 
     // loop until auction is over
     let currentTimestamp = new Date().getTime() / 1000;
@@ -492,16 +240,16 @@ export const waitForAuctionToEnd = async (
     assert.ok(currentTimestamp >= auctionEndTime);
 
     return;
-}
+};
 
 export const getAnchorEnv = () => {
     const providerUrl = process.env.ANCHOR_PROVIDER_URL;
 
-    if (lodash.includes(providerUrl, 'testnet')) {
-        return Network.Testnet
-    } else if (lodash.includes(providerUrl, 'devnet')) {
+    if (lodash.includes(providerUrl, "testnet")) {
+        return Network.Testnet;
+    } else if (lodash.includes(providerUrl, "devnet")) {
         return Network.Devnet;
-    } else if (lodash.includes(providerUrl, 'mainnet')) {
+    } else if (lodash.includes(providerUrl, "mainnet")) {
         return Network.Mainnet;
     } else {
         return Network.Localnet;

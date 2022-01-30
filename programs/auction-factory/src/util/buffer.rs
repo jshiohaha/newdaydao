@@ -1,4 +1,4 @@
-use {anchor_lang::prelude::*, solana_program::msg, std::cmp, std::convert::TryInto};
+use {anchor_lang::prelude::*, solana_program::msg, std::convert::TryInto};
 
 use crate::{constant::MAX_URI_LENGTH, error::ErrorCode};
 
@@ -168,7 +168,7 @@ fn get_bounds(
 }
 
 // comprehensive tests for buffer utils
-// run with: cargo test buffer_tests
+// run with: `cargo test buffer_tests`
 #[cfg(test)]
 mod buffer_tests {
     use crate::{error::ErrorCode, util::buffer::add_to_circular_buffer, util::buffer::get_item};

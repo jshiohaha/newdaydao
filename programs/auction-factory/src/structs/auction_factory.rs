@@ -3,11 +3,23 @@ use anchor_lang::prelude::*;
 // local imports
 use crate::util::general::get_current_timestamp;
 
+pub const AUCTION_FACTORY_DATA_SPACE: usize = 
+    // time_buffer
+    8 +
+    // min_bid_percentage_increase
+    8 +
+    // min_reserve_price
+    8 +
+    // duration
+    8;
+
 pub const AUCTION_FACTORY_ACCOUNT_SPACE: usize =
     // discriminator
     8 +
     // bump
     1 +
+    // uuid string of len 10
+    4 + 10 +
     // sequence
     8 +
     // authority
@@ -15,16 +27,7 @@ pub const AUCTION_FACTORY_ACCOUNT_SPACE: usize =
     // is_active
     1 +
     // auction factory data
-    (
-        // time_buffer
-        8 +
-        // min_bid_percentage_increase
-        8 +
-        // min_reserve_price
-        8 +
-        // duration
-        8
-    ) +
+    AUCTION_FACTORY_DATA_SPACE +
     // initialized_at
     8 +
     // active_since
@@ -51,6 +54,8 @@ pub struct AuctionFactoryData {
 #[derive(Default)]
 pub struct AuctionFactory {
     pub bump: u8,
+    // auction factory uuid
+    pub uuid: String,
     // number of auctions managed by sequence
     pub sequence: u64,
     // authority with permission to modify this auction
@@ -78,6 +83,7 @@ impl AuctionFactory {
     pub fn init(
         &mut self,
         bump: u8,
+        uuid: String,
         authority: Pubkey,
         treasury: Pubkey,
         config: Pubkey,
@@ -86,6 +92,7 @@ impl AuctionFactory {
         let current_timestamp = get_current_timestamp().unwrap();
 
         self.bump = bump;
+        self.uuid = uuid;
         self.sequence = 0;
         self.authority = authority;
         self.is_active = false;

@@ -1,7 +1,8 @@
 use {
     anchor_lang::prelude::*,
-    solana_program::msg,
     anchor_spl::token,
+    solana_program::msg,
+    std::convert::TryInto,
 };
 
 mod constant;
@@ -15,7 +16,6 @@ mod verify;
 use {
     constant::*,
     context::*,
-    error::ErrorCode,
     structs::{
         auction::Auction,
         auction_factory::{AuctionFactory, AuctionFactoryData},
@@ -23,22 +23,13 @@ use {
     },
 };
 
-use std::{cmp, convert::TryInto, mem};
-
 declare_id!("44viVLXpTZ5qTdtHDN59iYLABZUaw8EBwnTN4ygehukp");
 
 // [TODO]
-// - change auction factory seed to not original authority in case it changes....
-// - same for config???? ^^
-//      - don't use authority pubkey. rather, some value like counter or seed phrase?
+// - change config seed so that we can create multiple per program??
 //
 // - deploy to devnet and start testing???
 //      - can loosen params for testing
-//
-// ...later
-// - create PDA to store tweet data from owner?
-// - not sure we want to store in arweave because we have to update and reupload
-// (quest): what do all the derive params mean. i.e. PartialEq, Debug
 
 #[program]
 pub mod auction_factory {
@@ -54,6 +45,7 @@ pub mod auction_factory {
     pub fn mint_to_auction(
         ctx: Context<CreateTokenMint>,
         _auction_factory_bump: u8,
+        _uuid: String,
         _auction_bump: u8,
         _sequence: u64,
     ) -> ProgramResult {
@@ -65,6 +57,7 @@ pub mod auction_factory {
     pub fn create_first_auction(
         ctx: Context<CreateFirstAuction>,
         _auction_factory_bump: u8,
+        _uuid: String,
         auction_bump: u8,
         _sequence: u64,
     ) -> ProgramResult {
@@ -81,6 +74,7 @@ pub mod auction_factory {
     pub fn create_next_auction(
         ctx: Context<CreateNextAuction>,
         _auction_factory_bump: u8,
+        _uuid: String,
         _current_auction_bump: u8,
         next_auction_bump: u8,
         _current_seq: u64,
@@ -97,11 +91,12 @@ pub mod auction_factory {
     }
 
     // this is a separate ix from create_auction because we cannot call ix this until
-    // an auction acount has been created. from the client, we can batch these in 1 transaction.
-    // so, ux doesn't have to suffer from 2 separate transactions.
+    // an auction acount has been created. from the client, we can combine these ixns into
+    // 1 txn. so, ux doesn't have to suffer from 2 separate transactions.
     pub fn supply_resource_to_auction(
         ctx: Context<SupplyResource>,
         _auction_factory_bump: u8,
+        _uuid: String,
         _auction_bump: u8,
         _config_bump: u8,
         _sequence: u64,
@@ -146,9 +141,10 @@ pub mod auction_factory {
             ctx.accounts.auction.key(),
             ctx.accounts.auction_factory.key(),
             current_sequence,
-            uri
+            uri,
         );
 
+        // metadata CPIs will not work on localnet
         // instructions::create_metadata::create_metadata(
         //     ctx.accounts
         //         .into_create_metadata_context()
@@ -177,6 +173,7 @@ pub mod auction_factory {
     pub fn place_bid(
         ctx: Context<PlaceBid>,
         _auction_factory_bump: u8,
+        _uuid: String,
         _auction_bump: u8,
         _sequence: u64,
         amount: u64,
@@ -206,9 +203,7 @@ pub mod auction_factory {
         )?;
 
         instructions::place_bid::transfer_bid_amount(&ctx, amount)?;
-
         instructions::place_bid::return_losing_bid_amount(&ctx)?;
-
         instructions::place_bid::place(
             amount,
             ctx.accounts.bidder.key(),
@@ -222,19 +217,18 @@ pub mod auction_factory {
         ctx: Context<SettleAuction>,
         bidder_account_bump: u8,
         _auction_factory_bump: u8,
+        _uuid: String,
         _auction_bump: u8,
         _sequence: u64,
     ) -> ProgramResult {
-        // we don't check if auction factory is active here because
-        // we should be able to settle any ongoing auction even if
-        // auction factory is paused.
+        // we don't check if auction factory is active here because we should be able to settle any
+        // ongoing auction even if auction factory is paused.
 
         verify::verify_auction_address_for_factory(
             ctx.accounts.auction_factory.get_current_sequence(),
             ctx.accounts.auction_factory.key(),
             ctx.accounts.auction.key(),
         )?;
-
         verify::verify_auction_can_be_settled(&ctx.accounts.auction)?;
         verify::verify_auction_has_resource(&ctx.accounts.auction)?;
 
@@ -243,7 +237,6 @@ pub mod auction_factory {
                 "settling auction with no bids: {}",
                 ctx.accounts.auction.key().to_string()
             );
-
             instructions::settle_auction::settle_empty_auction(ctx)?;
         } else {
             msg!(
@@ -251,15 +244,12 @@ pub mod auction_factory {
                 ctx.accounts.auction.key().to_string(),
                 ctx.accounts.auction.amount
             );
-
             verify::verify_treasury(&ctx.accounts.auction_factory, ctx.accounts.treasury.key())?;
-
             verify::verify_bidder_token_account(
                 ctx.accounts.bidder_token_account.to_account_info(),
                 &ctx.accounts.auction,
                 bidder_account_bump,
             )?;
-
             instructions::settle_auction::settle(ctx)?;
         }
 
@@ -269,8 +259,9 @@ pub mod auction_factory {
     pub fn close_auction_token_account(
         ctx: Context<CloseAuctionTokenAccount>,
         _auction_factory_bump: u8,
+        _uuid: String,
         _auction_bump: u8,
-        _sequence: u64
+        _sequence: u64,
     ) -> ProgramResult {
         let auction_factory_key = ctx.accounts.auction_factory.key();
         let sequence = ctx.accounts.auction.sequence.to_string();
@@ -284,7 +275,7 @@ pub mod auction_factory {
                     auction_factory_key.as_ref(),
                     sequence.as_bytes(),
                     &[bump],
-                ]])
+                ]]),
         )?;
 
         Ok(())
@@ -307,12 +298,15 @@ pub mod auction_factory {
     pub fn initialize_auction_factory(
         ctx: Context<InitializeAuctionFactory>,
         bump: u8,
-        config_bump: u8,
+        uuid: String,
+        _config_bump: u8,
         data: AuctionFactoryData,
     ) -> ProgramResult {
-        // initialize_uri_config
+        verify::verify_auction_factory_uuid(&uuid)?;
+
         ctx.accounts.auction_factory.init(
             bump,
+            uuid,
             ctx.accounts.payer.key(),
             ctx.accounts.treasury.key(),
             ctx.accounts.config.key(),
@@ -322,21 +316,19 @@ pub mod auction_factory {
         Ok(())
     }
 
-    // update config account address intentionally excluded since
-    // we treat config as a circular buffer. we should be able to use
-    // same config, forever.
+    // update config account ixn intentionally excluded since we treat config as a circular buffer.
+    // we should be able to use same config forever. can optionally add this later if needed.
 
     pub fn add_uris_to_config(
         ctx: Context<AddUrisToConfig>,
         _auction_factory_bump: u8,
+        _uuid: String,
         _config_bump: u8,
-        force_err_log: bool,
         config_data: Vec<String>,
     ) -> ProgramResult {
         ctx.accounts.config.add_data(
             ctx.accounts.auction_factory.sequence as usize,
             config_data,
-            force_err_log
         )?;
 
         Ok(())
@@ -345,6 +337,7 @@ pub mod auction_factory {
     pub fn toggle_auction_factory_status(
         ctx: Context<ModifyAuctionFactory>,
         _bump: u8,
+        _uuid: String,
     ) -> ProgramResult {
         verify::verify_auction_factory_authority(
             ctx.accounts.payer.key(),
@@ -368,6 +361,7 @@ pub mod auction_factory {
     pub fn modify_auction_factory_data(
         ctx: Context<ModifyAuctionFactory>,
         _bump: u8,
+        _uuid: String,
         data: AuctionFactoryData,
     ) -> ProgramResult {
         verify::verify_auction_factory_authority(
@@ -376,15 +370,16 @@ pub mod auction_factory {
         )?;
 
         let auction_factory = &mut ctx.accounts.auction_factory;
-
         auction_factory.update_data(data);
 
         Ok(())
     }
 
+    // note: not tested with anchor tests
     pub fn update_authority(
         ctx: Context<UpdateAuctionFactoryAuthority>,
         _bump: u8,
+        _uuid: String,
     ) -> ProgramResult {
         verify::verify_auction_factory_authority(
             ctx.accounts.payer.key(),
@@ -392,23 +387,22 @@ pub mod auction_factory {
         )?;
 
         let auction_factory = &mut ctx.accounts.auction_factory;
-
         auction_factory.update_authority(*ctx.accounts.new_authority.key);
 
         Ok(())
     }
 
-    pub fn update_treasury(ctx: Context<UpdateAuctionFactoryTreasury>, _bump: u8) -> ProgramResult {
+    pub fn update_treasury(
+        ctx: Context<UpdateAuctionFactoryTreasury>,
+        _bump: u8,
+        _uuid: String,
+    ) -> ProgramResult {
         verify::verify_auction_factory_authority(
             ctx.accounts.payer.key(),
             ctx.accounts.auction_factory.authority,
         )?;
 
-        // (quest): can we check that a treasury account exists?
-        // if not, treasury funds will be lost again until updated.
-
         let auction_factory = &mut ctx.accounts.auction_factory;
-
         auction_factory.update_treasury(*ctx.accounts.treasury.key);
 
         Ok(())
@@ -417,19 +411,20 @@ pub mod auction_factory {
     // auction factory will be the creator of all NFTs and thus receive any secondary royalties.
     // we need this functionality to extract royalties from the auction factory
     // to the designated treasury.
+    // note: not tested with anchor tests
     pub fn transfer_lamports_to_treasury(
         ctx: Context<ModifyAuctionFactory>,
         _bump: u8,
+        _uuid: String,
     ) -> ProgramResult {
         verify::verify_auction_factory_authority(
             ctx.accounts.payer.key(),
             ctx.accounts.auction_factory.authority,
         )?;
 
-        // TODO: transfer lamports from auction_factory PDA to treasury.
-        // reminder: don't over-transfer & leave account empty so that garbage
+        // note: don't over-transfer & leave account empty so that garbage
         // collector automatically closes the account.
-        // (quest): how to calculate number of lamports to transfer?
+        // quest: how to calculate number of lamports to transfer?
 
         Ok(())
     }

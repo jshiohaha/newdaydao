@@ -8,7 +8,8 @@ use crate::{
     structs::auction_factory::AuctionFactory,
     util::general::{
         assert_initialized, assert_owned_by, get_auction_account_address, get_current_timestamp,
-    }
+    },
+    constant::AUCTION_FACTORY_UUID_LEN
 };
 
 pub fn verify_auction_address_for_factory(
@@ -19,7 +20,6 @@ pub fn verify_auction_address_for_factory(
     // grab the derived current auction address and verify it matches the supplied address
     let (current_auction_address, _bump) = get_auction_account_address(sequence, auction_factory);
 
-    // TODO: use create public key from seed. cheaper?
     if current_auction != current_auction_address {
         return Err(ErrorCode::AuctionAddressMismatch.into());
     }
@@ -146,7 +146,7 @@ pub fn verify_bidder_has_sufficient_account_balance(
     amount: u64,
 ) -> ProgramResult {
     if bidder.lamports() < amount {
-        return Err(ErrorCode::NotEnoughSOL.into());
+        return Err(ErrorCode::InsufficientAccountBalance.into());
     }
 
     Ok(())
@@ -236,6 +236,16 @@ pub fn verify_bidder_token_account(
         if bidder_token_account.key() != computed_token_account_pubkey {
             return Err(ErrorCode::TokenAccountNotOwnedByWinningBidder.into());
         }
+    }
+
+    Ok(())
+}
+
+pub fn verify_auction_factory_uuid(
+    uuid: &str
+) -> ProgramResult {
+    if uuid.len() != AUCTION_FACTORY_UUID_LEN {
+        return Err(ErrorCode::UuidInvalidLengthError.into());
     }
 
     Ok(())

@@ -1,14 +1,8 @@
-use {
-    anchor_lang::prelude::*,
-    metaplex_token_metadata::state::Creator,
-    solana_program::pubkey::Pubkey};
+use {metaplex_token_metadata::state::Creator, solana_program::pubkey::Pubkey};
 
-use crate::{
-    constant::{
-        AUCTION_CREATOR_SHARE, AUCTION_FACTORY_CREATOR_SHARE, SELLER_FEE_BASIS_POINTS,
-        TOKEN_BASE_NAME, TOKEN_SYMBOL,
-    },
-    structs::config::Config,
+use crate::constant::{
+    AUCTION_CREATOR_SHARE, AUCTION_FACTORY_CREATOR_SHARE, SELLER_FEE_BASIS_POINTS, TOKEN_BASE_NAME,
+    TOKEN_SYMBOL,
 };
 
 // TODO: update based on new metaplex metadata standard?
@@ -26,7 +20,7 @@ pub fn get_metadata_info(
     auction: Pubkey,
     auction_factory: Pubkey,
     current_sequence: u64,
-    config: String
+    config: String,
 ) -> MetadataInfo {
     // source: https://github.com/metaplex-foundation/metaplex/blob/626d15d82be241931425cf0b11105dbf25bc9ef8/rust/token-metadata/program/src/utils.rs#L86
     let creators = vec![
@@ -42,7 +36,6 @@ pub fn get_metadata_info(
         },
     ];
 
-    // let token_uri = String::from("https://arweave.net/EEsj8ZXEZaboA7SxVE9tim4eVje0sygduBbDxV1Lws0");
     return MetadataInfo {
         name: format!("{} #{}", TOKEN_BASE_NAME, current_sequence),
         symbol: TOKEN_SYMBOL.to_string(),

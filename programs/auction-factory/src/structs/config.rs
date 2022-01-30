@@ -1,14 +1,8 @@
-use {
-    anchor_lang::prelude::*,
-    solana_program::msg,
-    std::convert::TryInto,
-    std::cmp,
-};
+use {anchor_lang::prelude::*, std::convert::TryInto};
 
 use crate::{
-    constant::MAX_URI_LENGTH,
     error::ErrorCode,
-    util::buffer::{get_valid_element, add_to_circular_buffer, get_item}
+    util::buffer::{add_to_circular_buffer, get_item},
 };
 
 /// Config manages NFT metadata via a circular buffer and a few pointers.
@@ -55,12 +49,7 @@ impl Config {
         let max_supply: usize = self.max_supply as usize;
         let update_idx: usize = self.update_idx as usize;
 
-        let item = get_item(
-            &self.buffer,
-            max_supply,
-            sequence,
-            update_idx
-        )?;
+        let item = get_item(&self.buffer, max_supply, sequence, update_idx)?;
 
         Ok(item)
     }
@@ -69,9 +58,7 @@ impl Config {
         &mut self,
         seq: usize,
         config_data: Vec<String>,
-        force_err_log: bool,
     ) -> ProgramResult {
-        let uri_config_size: usize = self.buffer.len();
         let mut last_updated_idx: usize = self.update_idx as usize;
 
         add_to_circular_buffer(
@@ -79,7 +66,7 @@ impl Config {
             &mut self.buffer,
             self.max_supply as usize,
             &config_data,
-            &mut last_updated_idx
+            &mut last_updated_idx,
         )?;
 
         self.update_idx = last_updated_idx.try_into().unwrap();

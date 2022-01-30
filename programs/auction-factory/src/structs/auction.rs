@@ -2,12 +2,19 @@ use anchor_lang::prelude::*;
 
 // local imports
 use crate::{
-    error::ErrorCode, structs::auction_factory::AuctionFactoryData,
-    util::general::get_current_timestamp,
-    util::vec::update_vec
+    structs::auction_factory::AuctionFactoryData, util::general::get_current_timestamp,
+    util::vec::update_vec,
 };
 
 pub const MAX_BIDS_TO_RECORD: usize = 10;
+
+pub const BID_SPACE: usize =
+    // bidder
+    32 +
+    // updated_at
+    8 +
+    // bid amount
+    8;
 
 pub const AUCTION_ACCOUNT_SPACE: usize =
     // discriminator
@@ -35,14 +42,7 @@ pub const AUCTION_ACCOUNT_SPACE: usize =
     // resource
     1 + 32 +
     // bids
-    4 + ((
-        // bidder
-        32 +
-        // updated_at
-        8 +
-        // bid amount
-        8
-    ) * MAX_BIDS_TO_RECORD);
+    4 + (BID_SPACE * MAX_BIDS_TO_RECORD);
 
 #[repr(C)]
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Debug)]
@@ -81,7 +81,6 @@ pub struct Auction {
     pub resource: Option<Pubkey>,
     // vec of bids submitted
     pub bids: Vec<Bid>,
-
     // token mint address for the SPL token being used to bid; default to SOL
     // pub token_mint: Option<Pubkey>,
 }
@@ -142,4 +141,3 @@ impl Auction {
         Ok(())
     }
 }
-

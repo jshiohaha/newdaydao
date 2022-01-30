@@ -1,9 +1,5 @@
-use anchor_lang::prelude::*;
-
 // local imports
-use crate::{
-    error::ErrorCode,
-};
+use crate::error::ErrorCode;
 
 pub fn update_vec<T: Clone>(
     vec: &mut Vec<T>,
@@ -13,15 +9,12 @@ pub fn update_vec<T: Clone>(
     if vec.len() < max_vec_size {
         vec.push(val);
     } else {
+        // there's probably a better, more ~rusty~ way to do this :shrug:
         let mut updated_vec = Vec::new();
         updated_vec.extend_from_slice(&vec[1..]);
         updated_vec.push(val);
 
         *vec = updated_vec;
-
-        // let mut sub_vec: Vec<usize> = vec[1..].to_vec();
-        // sub_vec.push(val);
-        // *vec = sub_vec.to_vec();
     }
 
     Ok(())
@@ -37,11 +30,7 @@ mod update_vec_tests {
     fn update_vec_add_first_item() {
         let max_vec_size = 5;
         let mut array = vec![];
-        let result = update_vec(
-            &mut array,
-            0,
-            max_vec_size
-        );
+        let result = update_vec(&mut array, 0, max_vec_size);
 
         assert!(!result.is_err());
         assert_eq!(array, vec![0]);
@@ -51,11 +40,7 @@ mod update_vec_tests {
     fn update_vec_add_second_item() {
         let max_vec_size = 5;
         let mut array = vec![0];
-        let result = update_vec(
-            &mut array,
-            1,
-            max_vec_size
-        );
+        let result = update_vec(&mut array, 1, max_vec_size);
 
         assert!(!result.is_err());
         assert_eq!(array, vec![0, 1]);
@@ -65,11 +50,7 @@ mod update_vec_tests {
     fn update_vec_add_last_item() {
         let max_vec_size = 5;
         let mut array = vec![0, 1, 2, 3];
-        let result = update_vec(
-            &mut array,
-            4,
-            max_vec_size
-        );
+        let result = update_vec(&mut array, 4, max_vec_size);
 
         assert!(!result.is_err());
         assert_eq!(array, vec![0, 1, 2, 3, 4]);
@@ -79,13 +60,9 @@ mod update_vec_tests {
     fn update_vec_shift_first_element() {
         let max_vec_size = 5;
         let mut array = vec![0, 1, 2, 3, 4];
-        let result = update_vec(
-            &mut array,
-            5,
-            max_vec_size
-        );
+        let result = update_vec(&mut array, 5, max_vec_size);
 
         assert!(!result.is_err());
-        assert_eq!(array, vec![1,2,3,4,5]);
+        assert_eq!(array, vec![1, 2, 3, 4, 5]);
     }
 }
