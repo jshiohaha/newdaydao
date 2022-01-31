@@ -4,7 +4,7 @@ use {
 };
 
 use crate::{
-    constant::{AUX_FACTORY_SEED, AUX_SEED, MAX_URI_LENGTH, URI_CONFIG_SEED},
+    constant::{AUX_FACTORY_SEED, AUX_SEED, MAX_URI_LENGTH, URI_CONFIG_SEED, CONFIG_UUID_LEN},
     instructions::{
         create_master_edition::CreateMasterEdition, create_metadata::CreateMetadata,
         transfer::TransferLamports, update_metadata::UpdateMetadata,
@@ -156,7 +156,8 @@ pub struct CreateNextAuction<'info> {
     uuid: String,
     auction_bump: u8,
     config_bump: u8,
-    sequence: u64
+    config_uuid: String,
+    sequence: u64,
 )]
 pub struct SupplyResource<'info> {
     #[account(mut)]
@@ -165,6 +166,7 @@ pub struct SupplyResource<'info> {
         mut,
         seeds = [
             URI_CONFIG_SEED.as_bytes(),
+            config_uuid.as_bytes()
         ],
         bump = config_bump,
     )]
@@ -201,14 +203,6 @@ pub struct SupplyResource<'info> {
     pub metadata: AccountInfo<'info>,
     #[account(mut)]
     pub master_edition: AccountInfo<'info>,
-    // we create accounts and mint token before invoking the endpoint associated with this
-    // context, so amount = 1. if this were not the case, we would expect amount == 0.
-    #[account(
-        mut,
-        constraint = auction_token_account.amount == 1,
-        constraint = auction_token_account.owner == auction.key()
-    )]
-    pub auction_token_account: Account<'info, TokenAccount>,
     // note: executable macro will not work for token_metadata_program on localnet
     #[account(address = metaplex_token_metadata::id())]
     pub token_metadata_program: UncheckedAccount<'info>,
@@ -366,12 +360,13 @@ pub struct CloseAuctionTokenAccount<'info> {
 /// ===================================
 
 #[derive(Accounts)]
-#[instruction(bump: u8, max_supply: u32)]
+#[instruction(bump: u8, uuid: String, max_supply: u32)]
 pub struct InitializeConfig<'info> {
     pub payer: Signer<'info>,
     #[account(init,
         seeds = [
             URI_CONFIG_SEED.as_bytes(),
+            uuid.as_bytes(),
         ],
         bump = bump,
         payer = payer,
@@ -387,6 +382,7 @@ pub struct InitializeConfig<'info> {
     bump: u8,
     uuid: String,
     config_bump: u8,
+    config_uuid: String,
     data: AuctionFactoryData
 )]
 pub struct InitializeAuctionFactory<'info> {
@@ -399,6 +395,7 @@ pub struct InitializeAuctionFactory<'info> {
     #[account(
         seeds = [
             URI_CONFIG_SEED.as_bytes(),
+            config_uuid.as_bytes(),
         ],
         bump = config_bump,
         constraint = config.to_account_info().owner == program_id,
@@ -472,12 +469,13 @@ pub struct UpdateAuctionFactoryTreasury<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(auction_factory_bump: u8, uuid: String, config_bump: u8)]
+#[instruction(auction_factory_bump: u8, uuid: String, config_bump: u8, config_uuid: String)]
 pub struct AddUrisToConfig<'info> {
     pub payer: Signer<'info>,
     #[account(mut,
         seeds = [
             URI_CONFIG_SEED.as_bytes(),
+            config_uuid.as_bytes(),
         ],
         bump = config_bump,
     )]
@@ -637,11 +635,17 @@ impl<'info> InitializeConfig<'info> {
         return
             // discriminator
             8 +
+            // uuid, string + size_of_char * num uuid chars
+            4 + (8 * CONFIG_UUID_LEN) +
             // max_supply
             4 +
+            // update_idx
+            4 +
+            // is_udpated
+            1 +
             // vec of Strings representing URI
-            4 + ((max_supply as usize) * (4 + MAX_URI_LENGTH)) +
+            4 + ((max_supply as usize) * (4 + MAX_URI_LENGTH));
             // a little extra buffer
-            8;
+            // 8;
     }
 }

@@ -13,6 +13,8 @@ import { PdaConfig, AuctionsData, Network } from "./types";
 import {
     TOKEN_METADATA_PROGRAM_ID,
     DEFAULT_ALPHABET,
+    AUCTION_FACTORY_UUID_LEN,
+    CONFIG_UUID_LEN
 } from "./constants";
 import {
     getAuctionAccountAddress,
@@ -23,8 +25,12 @@ import {
 import { AuctionFactory as AuctionFactoryProgram } from "../target/types/auction_factory";
 import { sleep } from './utils';
 
-export function uuidFromPubkey(account: PublicKey) {
-    return account.toBase58().slice(0, 10);
+export function auctionFactoryUuidFromPubkey(account: PublicKey) {
+    return account.toBase58().slice(0, AUCTION_FACTORY_UUID_LEN);
+}
+
+export function configUuidFromPubkey(account: PublicKey) {
+    return account.toBase58().slice(0, CONFIG_UUID_LEN);
 }
 
 export const generateMintAccounts = async (auction: PublicKey) => {
@@ -82,7 +88,23 @@ export const generateConfigs = (n: number, configLen: number = 10) => {
         .map((_el, _idx) => generateId(configLen));
 };
 
-// =============================
+export const generateRandomNumber = (min: number, max: number) => {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+export const logBids = (bids: any[]) => {
+    const reversedBids = bids.reverse();
+    console.log(`=== ${reversedBids.length} BIDS ===`);
+    for (let i = 0; i < reversedBids.length; i++) {
+        const bid = reversedBids[i];
+        const dateTime = new Date(bid.updatedAt.toNumber() * 1000);
+        console.log('> idx: ', i+1);
+        console.log('bidder: ', bid.bidder.toString());
+        console.log('udpatedAt: ', dateTime);
+        console.log('amount: ', bid.amount.toNumber());
+
+    }
+}
 
 export const getAccountBalance = async (
     program: Program<AuctionFactoryProgram>,
@@ -90,6 +112,23 @@ export const getAccountBalance = async (
 ) => {
     return await program.provider.connection.getBalance(address);
 };
+
+export const logConfigData = async (
+    program: Program<AuctionFactoryProgram>,
+    config: PublicKey
+) => {
+    const configAccount = await program.account.config.fetch(
+        config
+    );
+
+    console.log("===== [CONFIG] ======");
+    console.log('updateIdx: ', configAccount.updateIdx);
+    console.log('isUpdated: ', configAccount.isUpdated);
+    const buffer = configAccount.buffer as string[];
+    console.log('buffer len: ', buffer.length);
+    console.log('max supply: ', configAccount.maxSupply);
+    console.log('buffer: ', buffer);
+}
 
 export const logAuctionAccountData = async (
     program: Program<AuctionFactoryProgram>,
@@ -154,6 +193,28 @@ export const getAuctionAccountData = async (
     };
 };
 
+export const getCurrentAuction = (auctionsData: AuctionsData): PdaConfig => {
+    return {
+        address: auctionsData.currentAuction,
+        bump: auctionsData.currentAuctionBump,
+    };
+}
+
+// used primarily when creating auctions. in the case we are on the first auction, we want the current auction.
+// else, we want the next auction. not useful when performing operations on the current auction, e.g.
+// submitting bids. this is because we *always* want the current auction in these cases.
+// note: a bit confusing now that i think about it more. refactor later?
+export const getNextOrCurrentAuction = (auctionsData: AuctionsData): PdaConfig => {
+    return auctionsData.nextAuction === undefined
+        ? {
+              address: auctionsData.currentAuction,
+              bump: auctionsData.currentAuctionBump,
+          }
+        : {
+              address: auctionsData.nextAuction,
+              bump: auctionsData.nextAuctionBump,
+          };
+};
 
 export const generateSupplyResourceAccounts = async (
     payer: PublicKey,
@@ -170,7 +231,6 @@ export const generateSupplyResourceAccounts = async (
         metadata: mintAccounts.metadata,
         masterEdition: mintAccounts.masterEdition,
         mint: mintAccounts.mint.publicKey,
-        auctionTokenAccount: mintAccounts.tokenAccount,
         tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
         tokenProgram: TOKEN_PROGRAM_ID,
         systemProgram: SystemProgram.programId,
@@ -207,33 +267,34 @@ export const logSupplyResourceData = async (
     console.log("============================================================");
 };
 
-export const getAuctionData = (auctionsData: AuctionsData): PdaConfig => {
-    return auctionsData.nextAuction === undefined
-        ? {
-              address: auctionsData.currentAuction,
-              bump: auctionsData.currentAuctionBump,
-          }
-        : {
-              address: auctionsData.nextAuction,
-              bump: auctionsData.nextAuctionBump,
-          };
-};
-
 export const waitForAuctionToEnd = async (
     program: Program<AuctionFactoryProgram>,
-    auction: PublicKey
+    auction: PublicKey,
+    sleepTimeoutInSeconds: number = 3,
+    verbose: boolean = false
 ) => {
     let auctionAccount = await program.account.auction.fetch(auction);
 
     // loop until auction is over
     let currentTimestamp = new Date().getTime() / 1000;
     const auctionEndTime = auctionAccount.endTime.toNumber();
+
+    if (verbose) {
+        const readableAauctionEndTime = new Date(auctionEndTime * 1000);
+        console.log(`Spinning until auction is over at ${readableAauctionEndTime}`);
+    }
+
     for (;;) {
-        await sleep(3 * 1000); // sleep for 3 seconds at a time, until auction is over
+        if (verbose) {
+            console.log(`Sleeping ${sleepTimeoutInSeconds} seconds`);
+        }
+
+        await sleep(sleepTimeoutInSeconds * 1000); // sleep for 3 seconds at a time, until auction is over
 
         if (currentTimestamp >= auctionEndTime) {
             break;
         }
+
         currentTimestamp = new Date().getTime() / 1000;
     }
 

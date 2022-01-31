@@ -32,9 +32,14 @@ export const getAuctionAccountAddress = async (
 };
 
 // maybe we should allow to chnage config
-export const getConfigAddress = async () => {
+export const getConfigAddress = async (
+    uuid: string
+) => {
     return await PublicKey.findProgramAddress(
-        [Buffer.from(URI_CONFIG_SEED)],
+        [
+            Buffer.from(URI_CONFIG_SEED),
+            Buffer.from(uuid)
+        ],
         AUX_FACTORY_PROGRAM_ID
     );
 };

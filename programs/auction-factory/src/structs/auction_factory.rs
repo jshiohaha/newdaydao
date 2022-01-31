@@ -3,40 +3,6 @@ use anchor_lang::prelude::*;
 // local imports
 use crate::util::general::get_current_timestamp;
 
-pub const AUCTION_FACTORY_DATA_SPACE: usize = 
-    // time_buffer
-    8 +
-    // min_bid_percentage_increase
-    8 +
-    // min_reserve_price
-    8 +
-    // duration
-    8;
-
-pub const AUCTION_FACTORY_ACCOUNT_SPACE: usize =
-    // discriminator
-    8 +
-    // bump
-    1 +
-    // uuid string of len 10
-    4 + 10 +
-    // sequence
-    8 +
-    // authority
-    32 +
-    // is_active
-    1 +
-    // auction factory data
-    AUCTION_FACTORY_DATA_SPACE +
-    // initialized_at
-    8 +
-    // active_since
-    8 +
-    // treasury
-    32 +
-    // config
-    32;
-
 #[repr(C)]
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Debug)]
 pub struct AuctionFactoryData {
@@ -144,3 +110,38 @@ impl AuctionFactory {
         self.data = data;
     }
 }
+
+// auction factory account struct sizing for account init
+pub const AUCTION_FACTORY_DATA_SPACE: usize = 
+    // time_buffer
+    8 +
+    // min_bid_percentage_increase
+    8 +
+    // min_reserve_price
+    8 +
+    // duration
+    8;
+
+pub const AUCTION_FACTORY_ACCOUNT_SPACE: usize =
+    // discriminator
+    8 +
+    // bump
+    1 +
+    // uuid string of len 10
+    4 + 10 +
+    // sequence
+    8 +
+    // authority
+    32 +
+    // is_active
+    1 +
+    // auction factory data
+    AUCTION_FACTORY_DATA_SPACE +
+    // initialized_at
+    8 +
+    // active_since
+    8 +
+    // treasury
+    32 +
+    // config
+    32;

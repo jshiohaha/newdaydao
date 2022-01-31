@@ -1,4 +1,4 @@
-use {anchor_lang::prelude::*, solana_program::msg, std::convert::TryInto};
+use {solana_program::msg, std::convert::TryInto};
 
 use crate::{constant::MAX_URI_LENGTH, error::ErrorCode};
 
@@ -25,16 +25,20 @@ pub fn add_to_circular_buffer(
     max_buffer_len: usize,
     config_data: &Vec<String>,
     last_updated_idx: &mut usize,
-) -> ProgramResult {
+    is_updated: bool
+) -> std::result::Result<bool, ErrorCode> {
+    let mut wrote_data = false;
     let mut config_idx = 0;
     let mut continue_loop_iter = true;
     while continue_loop_iter {
-        let bounds = get_bounds(seq, *last_updated_idx, buffer.len(), max_buffer_len)?;
+        let bounds = get_bounds(seq, *last_updated_idx, buffer.len(), max_buffer_len, is_updated)?;
 
         let bound_diff = bounds
             .upper
             .checked_sub(bounds.lower)
             .ok_or(ErrorCode::NumericalUnderflowError)?;
+
+        wrote_data |= bound_diff > 0;
 
         msg!("max supply: {}, seq: {}, lower bound = {}, upper bound = {}, last_updated_idx: {}, bounds_diff: {}, can_wrap: {}",
             max_buffer_len,
@@ -89,7 +93,7 @@ pub fn add_to_circular_buffer(
         *last_updated_idx
     );
 
-    Ok(())
+    Ok(wrote_data)
 }
 
 pub fn get_item(
@@ -97,6 +101,7 @@ pub fn get_item(
     max_supply: usize,
     sequence: usize,
     update_idx: usize,
+    is_updated: bool
 ) -> Result<String, ErrorCode> {
     // with this, index should never exceed max arr size for idx out of bounds err.
     let idx = sequence
@@ -108,11 +113,15 @@ pub fn get_item(
             return Err(ErrorCode::InsufficientConfigError.into());
         }
     } else {
-        // no matter what the leading pointer is, we never want to the idx
-        // (adjusted seq) to exceed the update_idx adjusted for 0 indexed offset.
-        let adj_update_idx = if update_idx == 0 { 0 } else { update_idx - 1 };
-        if idx == adj_update_idx.try_into().unwrap() {
-            return Err(ErrorCode::InsufficientConfigError.into());
+        // edge case is first auction when buffer is full (aka update_idx == 0)
+        if sequence != 0 {
+            // no matter what the leading pointer is, we never want to the idx
+            // (adjusted seq) to exceed the update_idx adjusted for 0 indexed offset.
+            // let adj_update_idx = if update_idx == 0 { 0 } else { update_idx - 1 };
+            if idx == update_idx.try_into().unwrap() && !is_updated {
+                msg!("update_idx == idx");
+                return Err(ErrorCode::InsufficientConfigError.into());
+            }
         }
     }
 
@@ -132,6 +141,7 @@ fn get_bounds(
     last_updated_idx: usize,
     buffer_len: usize,
     max_buffer_len: usize,
+    is_updated: bool
 ) -> std::result::Result<Bounds, ErrorCode> {
     // make sure we fill buffer first
     if buffer_len < max_buffer_len {
@@ -150,7 +160,16 @@ fn get_bounds(
         .checked_rem(max_buffer_len)
         .ok_or(ErrorCode::CheckedRemError)?;
 
-    if adj_update_idx < adj_sequence {
+    // TODO: edge case where both adj pointers are at 0. but actual seq != 0,
+    // aka we have already looped through buffer before. fill to end of buffer.
+    if adj_update_idx == adj_sequence && !is_updated {
+        return Ok(Bounds {
+            lower: adj_update_idx,
+            upper: max_buffer_len,
+            can_wrap: true,
+            append: false,
+        });
+    } else if adj_update_idx < adj_sequence {
         return Ok(Bounds {
             lower: adj_update_idx,
             upper: adj_sequence,
@@ -159,6 +178,7 @@ fn get_bounds(
         });
     }
 
+    // else
     return Ok(Bounds {
         lower: adj_sequence,
         upper: adj_update_idx,

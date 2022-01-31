@@ -9,7 +9,7 @@ use crate::{
     util::general::{
         assert_initialized, assert_owned_by, get_auction_account_address, get_current_timestamp,
     },
-    constant::AUCTION_FACTORY_UUID_LEN
+    constant::{AUCTION_FACTORY_UUID_LEN, CONFIG_UUID_LEN}
 };
 
 pub fn verify_auction_address_for_factory(
@@ -119,20 +119,29 @@ pub fn verify_bid_amount(
     min_increase_percentage: u64,
     min_reserve_price: u64,
 ) -> ProgramResult {
-    // immediately reject bids lower than min reserve price
-    if new <= min_reserve_price {
+    // immediately reject bids lower than min reserve price, or equal to 0
+    if new < min_reserve_price || new == 0 {
         return Err(ErrorCode::InvalidBidAmount.into());
     }
 
-    let minimum_bid = original
+    let mut minimum_bid = original
         .checked_add(
             original
                 .checked_mul(min_increase_percentage)
-                .unwrap()
+                .ok_or(ErrorCode::NumericalOverflowError)?
                 .checked_div(100)
-                .unwrap(),
+                .ok_or(ErrorCode::NumericalDivisionError)?
         )
-        .unwrap();
+        .ok_or(ErrorCode::NumericalOverflowError)?;
+
+    // if bid amount is small enough, it's that min increase is going to be 0
+    // and thus, original = minimum bid. in this case, set minimum bid to at
+    // least 1 unit more than current bid.
+    if minimum_bid == original {
+        minimum_bid = original
+            .checked_add(1)
+            .ok_or(ErrorCode::NumericalOverflowError)?;
+    }
 
     if new < minimum_bid {
         return Err(ErrorCode::InvalidBidAmount.into());
@@ -245,7 +254,17 @@ pub fn verify_auction_factory_uuid(
     uuid: &str
 ) -> ProgramResult {
     if uuid.len() != AUCTION_FACTORY_UUID_LEN {
-        return Err(ErrorCode::UuidInvalidLengthError.into());
+        return Err(ErrorCode::AuctionFactoryUuidInvalidLengthError.into());
+    }
+
+    Ok(())
+}
+
+pub fn verify_config_uuid(
+    uuid: &str
+) -> ProgramResult {
+    if uuid.len() != CONFIG_UUID_LEN {
+        return Err(ErrorCode::ConfigUuidInvalidLengthError.into());
     }
 
     Ok(())

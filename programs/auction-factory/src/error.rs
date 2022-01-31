@@ -20,7 +20,9 @@ pub enum ErrorCode {
     #[msg("Treasury mismatch!")]
     TreasuryMismatch,
     #[msg("Uuid must be length 10")]
-    UuidInvalidLengthError,
+    AuctionFactoryUuidInvalidLengthError,
+    #[msg("Uuid must be length 5")]
+    ConfigUuidInvalidLengthError,
 
     // config
     #[msg("Config element too short. Config data elements must be at least 1 char in length.")]
@@ -65,6 +67,8 @@ pub enum ErrorCode {
     NumericalUnderflowError,
     #[msg("Checked REM error")]
     CheckedRemError, // https://docs.rs/num-traits/0.2.14/num_traits/ops/checked/trait.CheckedRem.html
+    #[msg("Numerical division error!")]
+    NumericalDivisionError,
 
     // misc
     #[msg("Account is not authorized to take such action.")]

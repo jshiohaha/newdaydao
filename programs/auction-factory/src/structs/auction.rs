@@ -4,45 +4,8 @@ use anchor_lang::prelude::*;
 use crate::{
     structs::auction_factory::AuctionFactoryData, util::general::get_current_timestamp,
     util::vec::update_vec,
+    constant::MAX_BIDS_TO_RECORD
 };
-
-pub const MAX_BIDS_TO_RECORD: usize = 10;
-
-pub const BID_SPACE: usize =
-    // bidder
-    32 +
-    // updated_at
-    8 +
-    // bid amount
-    8;
-
-pub const AUCTION_ACCOUNT_SPACE: usize =
-    // discriminator
-    8 +
-    // bump
-    1 +
-    // sequence
-    8 +
-    // authority
-    32 +
-    // start_time
-    8 +
-    // end_tiem
-    8 +
-    // finalized_end_time
-    8 +
-    // settled
-    1 +
-    // amount
-    8 +
-    // bidder
-    32 +
-    // bid_time
-    8 +
-    // resource
-    1 + 32 +
-    // bids
-    4 + (BID_SPACE * MAX_BIDS_TO_RECORD);
 
 #[repr(C)]
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Debug)]
@@ -141,3 +104,40 @@ impl Auction {
         Ok(())
     }
 }
+
+// auction account struct sizing for account init
+pub const BID_SPACE: usize =
+    // bidder
+    32 +
+    // updated_at
+    8 +
+    // bid amount
+    8;
+
+pub const AUCTION_ACCOUNT_SPACE: usize =
+    // discriminator
+    8 +
+    // bump
+    1 +
+    // sequence
+    8 +
+    // authority
+    32 +
+    // start_time
+    8 +
+    // end_tiem
+    8 +
+    // finalized_end_time
+    8 +
+    // settled
+    1 +
+    // amount
+    8 +
+    // bidder
+    32 +
+    // bid_time
+    8 +
+    // resource
+    1 + 32 +
+    // bids
+    4 + (BID_SPACE * MAX_BIDS_TO_RECORD);

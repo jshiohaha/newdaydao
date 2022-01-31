@@ -25,12 +25,6 @@ use {
 
 declare_id!("44viVLXpTZ5qTdtHDN59iYLABZUaw8EBwnTN4ygehukp");
 
-// [TODO]
-// - change config seed so that we can create multiple per program??
-//
-// - deploy to devnet and start testing???
-//      - can loosen params for testing
-
 #[program]
 pub mod auction_factory {
     use super::*;
@@ -99,6 +93,7 @@ pub mod auction_factory {
         _uuid: String,
         _auction_bump: u8,
         _config_bump: u8,
+        _config_uuid: String,
         _sequence: u64,
     ) -> ProgramResult {
         // i think mint & create metadata (NFT) logic could be moved to a separate program
@@ -129,10 +124,12 @@ pub mod auction_factory {
             &[bump],
         ];
 
-        let uri: String = ctx
+        let uri = ctx
             .accounts
             .config
             .get_item(current_sequence.try_into().unwrap())?;
+
+        msg!("fetched {} from config", uri);
 
         // creators will be auction & auction factory account for purposes of secondary
         // royalties since treasury can change. we will include an on-chain function to dump
@@ -145,25 +142,25 @@ pub mod auction_factory {
         );
 
         // metadata CPIs will not work on localnet
-        // instructions::create_metadata::create_metadata(
-        //     ctx.accounts
-        //         .into_create_metadata_context()
-        //         .with_signer(&[seeds]),
-        //     metadata_info,
-        // )?;
+        instructions::create_metadata::create_metadata(
+            ctx.accounts
+                .into_create_metadata_context()
+                .with_signer(&[seeds]),
+            metadata_info,
+        )?;
 
-        // instructions::create_master_edition::create_master_edition_metadata(
-        //     ctx.accounts
-        //         .into_create_master_edition_metadata_context()
-        //         .with_signer(&[seeds]),
-        // )?;
+        instructions::create_master_edition::create_master_edition_metadata(
+            ctx.accounts
+                .into_create_master_edition_metadata_context()
+                .with_signer(&[seeds]),
+        )?;
 
-        // // update token metadata so that primary_sale_happened = true
-        // instructions::update_metadata::update_metadata_after_primary_sale(
-        //     ctx.accounts
-        //         .into_update_metadata_authority()
-        //         .with_signer(&[seeds]),
-        // )?;
+        // update token metadata so that primary_sale_happened = true
+        instructions::update_metadata::update_metadata_after_primary_sale(
+            ctx.accounts
+                .into_update_metadata_authority()
+                .with_signer(&[seeds]),
+        )?;
 
         ctx.accounts.auction.add_resource(ctx.accounts.mint.key());
 
@@ -288,9 +285,12 @@ pub mod auction_factory {
     pub fn initialize_config(
         ctx: Context<InitializeConfig>,
         bump: u8,
+        uuid: String,
         max_supply: u32,
     ) -> ProgramResult {
-        ctx.accounts.config.init(bump, max_supply);
+        verify::verify_config_uuid(&uuid)?;
+
+        ctx.accounts.config.init(bump, max_supply, uuid);
 
         Ok(())
     }
@@ -300,6 +300,7 @@ pub mod auction_factory {
         bump: u8,
         uuid: String,
         _config_bump: u8,
+        _config_uuid: String,
         data: AuctionFactoryData,
     ) -> ProgramResult {
         verify::verify_auction_factory_uuid(&uuid)?;
@@ -324,6 +325,7 @@ pub mod auction_factory {
         _auction_factory_bump: u8,
         _uuid: String,
         _config_bump: u8,
+        _config_uuid: String,
         config_data: Vec<String>,
     ) -> ProgramResult {
         ctx.accounts.config.add_data(
