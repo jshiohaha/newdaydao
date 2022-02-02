@@ -20,14 +20,6 @@ use crate::{
 /// context for unrestricted instructions ///
 /// =========================================
 
-// #[account(
-//     mut,
-//     constraint = config.to_account_info().owner == program_id,
-//     constraint = config.to_account_info().data_len() >= CONFIG_ARRAY_START+4+(data.max_number_of_lines as usize)*CONFIG_LINE_SIZE + 4 + (data.max_number_of_lines.checked_div(8).ok_or(ErrorCode::NumericalOverflowError)? as usize))]
-// #[account(constraint= authority.data_is_empty() && authority.lamports() > 0 )]
-
-// TODO: change auction_factory payer to uuid
-
 #[derive(Accounts)]
 #[instruction(
     auction_factory_bump: u8,

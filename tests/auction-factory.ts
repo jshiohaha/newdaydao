@@ -30,7 +30,7 @@ import {
     getTokenMintAccount,
     getMetadata,
 } from "./account";
-import { expectThrowsAsync, sleep } from "./utils";
+import { expectThrowsAsync, sleep, provideWallet } from "./utils";
 import { TOKEN_METADATA_PROGRAM_ID } from "./constants";
 import { AuctionFactory as AuctionFactoryProgram } from "../target/types/auction_factory";
 import {
@@ -59,10 +59,10 @@ const program = anchor.workspace
 
 const network = getAnchorEnv();
 
-const walletPath = "";
-const myWallet = Keypair.fromSecretKey(
-    new Uint8Array(JSON.parse(require("fs").readFileSync(walletPath, "utf8")))
-);
+// set env var on system before running tests.
+// on osx, this is `export LOCAL_WALLET_PATH="REPLACE_WITH_PATH_TO_LOCAL_WALLET"
+// this is something like /Users/myusername/.config/solana/id.json
+const myWallet = provideWallet();
 
 describe("execute basic auction factory functions", async () => {
     // warn: if this treasury has not been initialized, the settle auction test will fail due to 0 lamport balance
@@ -477,7 +477,6 @@ describe("execute basic auction factory functions", async () => {
         );
     });
 
-    // TODO: double check creation of auctions & sequence values
     it("initialize first auction & supply resource for auction", async () => {
         const payer = myWallet.publicKey;
         let auctionFactoryAccount = await program.account.auctionFactory.fetch(
@@ -1595,8 +1594,6 @@ describe("execute basic auction factory functions", async () => {
     });
 
     // done with main auction lifecycle 🙂
-    // run: `cargo test buffer_tests` to test config buffer util tests
-    // run: `cargo test update_vec_tests` to test vec util tests
 });
 
 if (network === Network.Localnet && RUN_ALL_TESTS) {

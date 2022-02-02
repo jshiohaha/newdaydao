@@ -34,8 +34,8 @@ pub mod auction_factory {
     /// ===================================
 
     // only used as a custom mint_to instruction since the ixn requires the authority to sign
-    // in the case of no multisig. and, a PDA can only sign from an on-chain
-    // program. Token source: https://github.com/solana-labs/solana-program-library/blob/e29bc53c5f572073908fb89c6812d22f6f5eecf5/token/js/client/token.js#L1731
+    // in the case of no multisig. and, a PDA can only sign from an on-chain program. Token source:
+    // https://github.com/solana-labs/solana-program-library/blob/e29bc53c5f572073908fb89c6812d22f6f5eecf5/token/js/client/token.js#L1731
     pub fn mint_to_auction(
         ctx: Context<CreateTokenMint>,
         _auction_factory_bump: u8,

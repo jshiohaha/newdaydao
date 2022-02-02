@@ -21,12 +21,9 @@ pub fn get_auction_account_address(
     let seeds = &[
         AUX_SEED.as_bytes(),
         auction_factory.as_ref(),
-        seq_seed.as_ref()
+        seq_seed.as_bytes()
     ];
-
     let program_id: Pubkey = Pubkey::from_str(AUX_FAX_PROGRAM_ID).unwrap();
-
-    // TODO: Pubkey::create_program_address(seeds, &program_id).unwrap() instead, cheaper?
     return Pubkey::find_program_address(seeds, &program_id);
 }
 

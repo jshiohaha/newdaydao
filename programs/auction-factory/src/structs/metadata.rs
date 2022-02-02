@@ -5,7 +5,7 @@ use crate::constant::{
     TOKEN_SYMBOL,
 };
 
-// TODO: update based on new metaplex metadata standard?
+// todo: update based on new metaplex metadata standard?
 pub struct MetadataInfo {
     pub name: String,
     pub symbol: String,

@@ -23,4 +23,6 @@ export const URI_CONFIG_SEED = "config";
 export const AUCTION_FACTORY_UUID_LEN = 5;
 export const CONFIG_UUID_LEN = 5;
 
+export const LOCAL_WALLET_PATH = process.env.LOCAL_WALLET_PATH;
+
 export const DEFAULT_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
