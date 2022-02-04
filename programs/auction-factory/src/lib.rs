@@ -1,10 +1,3 @@
-use {
-    anchor_lang::prelude::*,
-    anchor_spl::token,
-    solana_program::msg,
-    std::convert::TryInto,
-};
-
 mod constant;
 mod context;
 mod error;
@@ -14,13 +7,19 @@ mod util;
 mod verify;
 
 use {
+    anchor_lang::prelude::*,
+    anchor_spl::token,
     constant::*,
     context::*,
+    solana_program::msg,
+    std::convert::TryInto,
     structs::{
         auction::Auction,
         auction_factory::{AuctionFactory, AuctionFactoryData},
         metadata::get_metadata_info,
     },
+    util::general::get_available_lamports,
+    error::ErrorCode,
 };
 
 declare_id!("44viVLXpTZ5qTdtHDN59iYLABZUaw8EBwnTN4ygehukp");
@@ -33,9 +32,6 @@ pub mod auction_factory {
     /// unrestricted instructions       ///
     /// ===================================
 
-    // only used as a custom mint_to instruction since the ixn requires the authority to sign
-    // in the case of no multisig. and, a PDA can only sign from an on-chain program. Token source:
-    // https://github.com/solana-labs/solana-program-library/blob/e29bc53c5f572073908fb89c6812d22f6f5eecf5/token/js/client/token.js#L1731
     pub fn mint_to_auction(
         ctx: Context<CreateTokenMint>,
         _auction_factory_bump: u8,
@@ -84,9 +80,9 @@ pub mod auction_factory {
         Ok(())
     }
 
-    // this is a separate ix from create_auction because we cannot call ix this until
-    // an auction acount has been created. from the client, we can combine these ixns into
-    // 1 txn. so, ux doesn't have to suffer from 2 separate transactions.
+    // separate ix from create_auction because we cannot call ix this until an auction acount has been created.
+    // from the client, we might be able to pack these ixns into 1 txn, assuming we will not exceed computational budge.
+    // otherwise, user might have to sign 2 separate transactions when creating an auction & supplying a resource to that auction.
     pub fn supply_resource_to_auction(
         ctx: Context<SupplyResource>,
         _auction_factory_bump: u8,
@@ -96,10 +92,9 @@ pub mod auction_factory {
         _config_uuid: String,
         _sequence: u64,
     ) -> ProgramResult {
-        // i think mint & create metadata (NFT) logic could be moved to a separate program
-        // & invoked via CPI. that would decouple the auction from NFT logic. thinking this
-        // option is more attractive in the case that minting logic becomes more complex,
-        // i.e. we generate metadata and images on-chain, as opposed to storing in some
+        // i think mint & create metadata (NFT) logic could be moved to a separate program & invoked via CPI.
+        // that would decouple the auction from NFT logic. this option is def more attractive in the case that
+        // minting logic becomes more complex, i.e. we generate metadata and images on-chain, as opposed to storing in some
         // decentralized data store (e.g. arweave, ipfs). going to leave here for now.
 
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
@@ -113,6 +108,20 @@ pub mod auction_factory {
 
         verify::verify_auction_resource_dne(&ctx.accounts.auction)?;
 
+        let uri = ctx
+            .accounts
+            .config
+            .get_item(current_sequence.try_into().unwrap())?;
+
+        msg!("fetched {} from config", uri);
+
+        let metadata_info = get_metadata_info(
+            ctx.accounts.auction.key(),
+            ctx.accounts.auction_factory.key(),
+            current_sequence,
+            uri,
+        );
+
         let auction_factory_key = ctx.accounts.auction_factory.key();
         let sequence = ctx.accounts.auction.sequence.to_string();
         let bump = ctx.accounts.auction.bump;
@@ -124,24 +133,6 @@ pub mod auction_factory {
             &[bump],
         ];
 
-        let uri = ctx
-            .accounts
-            .config
-            .get_item(current_sequence.try_into().unwrap())?;
-
-        msg!("fetched {} from config", uri);
-
-        // creators will be auction & auction factory account for purposes of secondary
-        // royalties since treasury can change. we will include an on-chain function to dump
-        // lamports from auction factory PDA to treasury.
-        let metadata_info = get_metadata_info(
-            ctx.accounts.auction.key(),
-            ctx.accounts.auction_factory.key(),
-            current_sequence,
-            uri,
-        );
-
-        // metadata CPIs will not work on localnet
         instructions::create_metadata::create_metadata(
             ctx.accounts
                 .into_create_metadata_context()
@@ -218,9 +209,7 @@ pub mod auction_factory {
         _auction_bump: u8,
         _sequence: u64,
     ) -> ProgramResult {
-        // we don't check if auction factory is active here because we should be able to settle any
-        // ongoing auction even if auction factory is paused.
-
+        // avoid auction factory is active check. we should be able to settle an ongoing auction regardless of auction factory status.
         verify::verify_auction_address_for_factory(
             ctx.accounts.auction_factory.get_current_sequence(),
             ctx.accounts.auction_factory.key(),
@@ -247,6 +236,7 @@ pub mod auction_factory {
                 &ctx.accounts.auction,
                 bidder_account_bump,
             )?;
+
             instructions::settle_auction::settle(ctx)?;
         }
 
@@ -328,10 +318,9 @@ pub mod auction_factory {
         _config_uuid: String,
         config_data: Vec<String>,
     ) -> ProgramResult {
-        ctx.accounts.config.add_data(
-            ctx.accounts.auction_factory.sequence as usize,
-            config_data,
-        )?;
+        ctx.accounts
+            .config
+            .add_data(ctx.accounts.auction_factory.sequence as usize, config_data)?;
 
         Ok(())
     }
@@ -346,15 +335,12 @@ pub mod auction_factory {
             ctx.accounts.auction_factory.authority,
         )?;
 
-        let auction_factory_status = ctx.accounts.auction_factory.is_active;
-        let auction_factory = &mut ctx.accounts.auction_factory;
-
-        if auction_factory_status {
+        if ctx.accounts.auction_factory.is_active {
             msg!("Pausing auction factory");
-            auction_factory.pause();
+            ctx.accounts.auction_factory.pause();
         } else {
             msg!("Resuming auction factory");
-            auction_factory.resume();
+            ctx.accounts.auction_factory.resume();
         }
 
         Ok(())
@@ -371,8 +357,7 @@ pub mod auction_factory {
             ctx.accounts.auction_factory.authority,
         )?;
 
-        let auction_factory = &mut ctx.accounts.auction_factory;
-        auction_factory.update_data(data);
+        ctx.accounts.auction_factory.update_data(data);
 
         Ok(())
     }
@@ -388,8 +373,7 @@ pub mod auction_factory {
             ctx.accounts.auction_factory.authority,
         )?;
 
-        let auction_factory = &mut ctx.accounts.auction_factory;
-        auction_factory.update_authority(*ctx.accounts.new_authority.key);
+        ctx.accounts.auction_factory.update_authority(*ctx.accounts.new_authority.key);
 
         Ok(())
     }
@@ -404,18 +388,15 @@ pub mod auction_factory {
             ctx.accounts.auction_factory.authority,
         )?;
 
-        let auction_factory = &mut ctx.accounts.auction_factory;
-        auction_factory.update_treasury(*ctx.accounts.treasury.key);
+        ctx.accounts.auction_factory.update_treasury(*ctx.accounts.treasury.key);
 
         Ok(())
     }
 
-    // auction factory will be the creator of all NFTs and thus receive any secondary royalties.
-    // we need this functionality to extract royalties from the auction factory
-    // to the designated treasury.
-    // note: not tested with anchor tests
+    // auction factory is a creator of all NFTs and thus will receive possible secondary royalties.
+    // we need this functionality to dump excess lamports to the treasury.
     pub fn transfer_lamports_to_treasury(
-        ctx: Context<ModifyAuctionFactory>,
+        ctx: Context<TransferAuctionFactoryLamportsToTreasury>,
         _bump: u8,
         _uuid: String,
     ) -> ProgramResult {
@@ -424,9 +405,14 @@ pub mod auction_factory {
             ctx.accounts.auction_factory.authority,
         )?;
 
-        // note: don't over-transfer & leave account empty so that garbage
-        // collector automatically closes the account.
-        // quest: how to calculate number of lamports to transfer?
+        let auction_factory_account_info = &ctx.accounts.auction_factory.to_account_info();
+        let amount_to_transfer = get_available_lamports(auction_factory_account_info)?;
+
+        instructions::transfer::transfer_lamports(
+            auction_factory_account_info,
+            &ctx.accounts.treasury.to_account_info(),
+            amount_to_transfer
+        )?;
 
         Ok(())
     }

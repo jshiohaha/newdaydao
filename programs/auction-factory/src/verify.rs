@@ -1,15 +1,16 @@
-use anchor_lang::prelude::*;
-use std::str::FromStr;
-
-use crate::{
-    SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
-    error::ErrorCode,
-    structs::auction::Auction,
-    structs::auction_factory::AuctionFactory,
-    util::general::{
-        assert_initialized, assert_owned_by, get_auction_account_address, get_current_timestamp,
-    },
-    constant::{AUCTION_FACTORY_UUID_LEN, CONFIG_UUID_LEN}
+use {
+    anchor_lang::prelude::*,
+    std::str::FromStr,
+    crate::{
+        SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
+        error::ErrorCode,
+        structs::auction::Auction,
+        structs::auction_factory::AuctionFactory,
+        util::general::{
+            assert_initialized, assert_owned_by, get_auction_account_address, get_current_timestamp,
+        },
+        constant::{AUCTION_FACTORY_UUID_LEN, CONFIG_UUID_LEN}
+    }
 };
 
 pub fn verify_auction_address_for_factory(

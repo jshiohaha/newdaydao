@@ -1,15 +1,10 @@
 use {
+    crate::structs::metadata::MetadataInfo,
     anchor_lang::prelude::*,
     anchor_spl::token::Token,
-    solana_program::{
-        program::invoke_signed,
-        msg
-    },
-    metaplex_token_metadata::instruction::create_metadata_accounts
+    metaplex_token_metadata::instruction::create_metadata_accounts,
+    solana_program::{msg, program::invoke_signed},
 };
-
-// local imports
-use crate::structs::metadata::MetadataInfo;
 
 #[derive(Accounts)]
 pub struct CreateMetadata<'info> {

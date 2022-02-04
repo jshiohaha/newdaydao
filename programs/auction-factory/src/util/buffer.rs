@@ -1,6 +1,8 @@
-use {solana_program::msg, std::convert::TryInto};
-
-use crate::{constant::MAX_URI_LENGTH, error::ErrorCode};
+use {
+    crate::{constant::MAX_URI_LENGTH, error::ErrorCode},
+    solana_program::msg,
+    std::convert::TryInto,
+};
 
 pub fn get_valid_element(
     idx: usize,
@@ -25,13 +27,19 @@ pub fn add_to_circular_buffer(
     max_buffer_len: usize,
     config_data: &Vec<String>,
     last_updated_idx: &mut usize,
-    is_updated: bool
+    is_updated: bool,
 ) -> std::result::Result<bool, ErrorCode> {
     let mut wrote_data = false;
     let mut config_idx = 0;
     let mut continue_loop_iter = true;
     while continue_loop_iter {
-        let bounds = get_bounds(seq, *last_updated_idx, buffer.len(), max_buffer_len, is_updated)?;
+        let bounds = get_bounds(
+            seq,
+            *last_updated_idx,
+            buffer.len(),
+            max_buffer_len,
+            is_updated,
+        )?;
 
         let bound_diff = bounds
             .upper
@@ -101,7 +109,7 @@ pub fn get_item(
     max_supply: usize,
     sequence: usize,
     update_idx: usize,
-    is_updated: bool
+    is_updated: bool,
 ) -> Result<String, ErrorCode> {
     // with this, index should never exceed max arr size for idx out of bounds err.
     let idx = sequence
@@ -141,7 +149,7 @@ fn get_bounds(
     last_updated_idx: usize,
     buffer_len: usize,
     max_buffer_len: usize,
-    is_updated: bool
+    is_updated: bool,
 ) -> std::result::Result<Bounds, ErrorCode> {
     // make sure we fill buffer first
     if buffer_len < max_buffer_len {

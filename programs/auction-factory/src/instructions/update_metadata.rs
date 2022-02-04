@@ -1,10 +1,7 @@
 use {
     anchor_lang::prelude::*,
-    solana_program::{
-        program::invoke_signed,
-        msg
-    },
     metaplex_token_metadata::instruction::update_metadata_accounts,
+    solana_program::{msg, program::invoke_signed},
 };
 
 #[derive(Accounts)]
@@ -19,7 +16,6 @@ pub struct UpdateMetadata<'info> {
 pub fn update_metadata_after_primary_sale<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, UpdateMetadata<'info>>,
 ) -> ProgramResult {
-
     msg!("Invoking update metadata CPI call");
 
     invoke_signed(

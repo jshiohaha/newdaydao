@@ -1,19 +1,18 @@
 use {
+    crate::{
+        constant::{AUX_FACTORY_SEED, AUX_SEED, CONFIG_UUID_LEN, MAX_URI_LENGTH, URI_CONFIG_SEED},
+        instructions::{
+            create_master_edition::CreateMasterEdition, create_metadata::CreateMetadata,
+            transfer::TransferLamports, update_metadata::UpdateMetadata,
+        },
+        structs::{
+            auction::{Auction, AUCTION_ACCOUNT_SPACE},
+            auction_factory::{AuctionFactory, AuctionFactoryData, AUCTION_FACTORY_ACCOUNT_SPACE},
+            config::Config,
+        },
+    },
     anchor_lang::prelude::*,
     anchor_spl::token::{Burn, CloseAccount, Mint, MintTo, Token, TokenAccount},
-};
-
-use crate::{
-    constant::{AUX_FACTORY_SEED, AUX_SEED, MAX_URI_LENGTH, URI_CONFIG_SEED, CONFIG_UUID_LEN},
-    instructions::{
-        create_master_edition::CreateMasterEdition, create_metadata::CreateMetadata,
-        transfer::TransferLamports, update_metadata::UpdateMetadata,
-    },
-    structs::{
-        auction::{Auction, AUCTION_ACCOUNT_SPACE},
-        auction_factory::{AuctionFactory, AuctionFactoryData, AUCTION_FACTORY_ACCOUNT_SPACE},
-        config::Config,
-    },
 };
 
 /// =========================================
@@ -425,6 +424,29 @@ pub struct ModifyAuctionFactory<'info> {
 
 #[derive(Accounts)]
 #[instruction(bump: u8, uuid: String)]
+pub struct TransferAuctionFactoryLamportsToTreasury<'info> {
+    pub payer: Signer<'info>,
+    #[account(mut,
+        seeds = [
+            AUX_FACTORY_SEED.as_bytes(),
+            uuid.as_bytes()
+        ],
+        bump = bump,
+        constraint = auction_factory.authority.key() == payer.key(),
+        constraint = auction_factory.to_account_info().owner == program_id,
+    )]
+    pub auction_factory: Account<'info, AuctionFactory>,
+    // is this sufficient to verify treasury account exists? if not, there is risk treasury funds
+    // will be lost again until updated.
+    #[account(mut,
+        constraint = treasury.lamports() > 0,
+        constraint = treasury.key() == auction_factory.treasury.key()
+    )]
+    pub treasury: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+#[instruction(bump: u8, uuid: String)]
 pub struct UpdateAuctionFactoryAuthority<'info> {
     pub payer: Signer<'info>,
     pub new_authority: AccountInfo<'info>,
@@ -456,7 +478,10 @@ pub struct UpdateAuctionFactoryTreasury<'info> {
     pub auction_factory: Account<'info, AuctionFactory>,
     // is this sufficient to verify treasury account exists? if not, there is risk treasury funds
     // will be lost again until updated.
-    #[account(constraint= treasury.lamports() > 0)]
+    #[account(
+        constraint = treasury.lamports() > 0,
+        // since we are setting a new treasury, ignore check treasury.key() == auction_factory.treasury.key()
+    )]
     pub treasury: AccountInfo<'info>,
 }
 
@@ -637,7 +662,7 @@ impl<'info> InitializeConfig<'info> {
             1 +
             // vec of Strings representing URI
             4 + ((max_supply as usize) * (4 + MAX_URI_LENGTH));
-            // a little extra buffer
-            // 8;
+        // a little extra buffer
+        // 8;
     }
 }

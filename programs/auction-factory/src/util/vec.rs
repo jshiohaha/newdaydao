@@ -1,4 +1,3 @@
-// local imports
 use crate::error::ErrorCode;
 
 pub fn update_vec<T: Clone>(

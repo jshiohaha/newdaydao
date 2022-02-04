@@ -1,8 +1,10 @@
-use {anchor_lang::prelude::*, std::convert::TryInto};
-
-use crate::{
-    error::ErrorCode,
-    util::buffer::{add_to_circular_buffer, get_item},
+use {
+    crate::{
+        error::ErrorCode,
+        util::buffer::{add_to_circular_buffer, get_item},
+    },
+    anchor_lang::prelude::*,
+    std::convert::TryInto,
 };
 
 /// Config manages NFT metadata via a circular buffer and a few pointers.
@@ -75,16 +77,18 @@ impl Config {
             self.is_updated = false;
         }
 
-        let item = get_item(&self.buffer, max_supply, sequence, update_idx, self.is_updated)?;
+        let item = get_item(
+            &self.buffer,
+            max_supply,
+            sequence,
+            update_idx,
+            self.is_updated,
+        )?;
 
         Ok(item)
     }
 
-    pub fn add_data(
-        &mut self,
-        seq: usize,
-        config_data: Vec<String>,
-    ) -> ProgramResult {
+    pub fn add_data(&mut self, seq: usize, config_data: Vec<String>) -> ProgramResult {
         let last_updated_idx_before_write: usize = self.update_idx as usize;
         let mut last_updated_idx: usize = self.update_idx as usize;
         let max_supply = self.max_supply as usize;
@@ -95,7 +99,7 @@ impl Config {
             max_supply,
             &config_data,
             &mut last_updated_idx,
-            self.is_updated
+            self.is_updated,
         )?;
 
         self.update_idx = last_updated_idx.try_into().unwrap();

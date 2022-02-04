@@ -1,14 +1,11 @@
 use {
     anchor_lang::prelude::*,
     anchor_spl::token,
-};
-
-// local imports
-use crate::{
-    SettleAuction,
-    constant::AUX_SEED,
-    error::ErrorCode,
-    instructions::transfer::{spl_token_transfer, TokenTransferParams}
+    crate::{
+        SettleAuction,
+        constant::AUX_SEED,
+        instructions::transfer::{spl_token_transfer, TokenTransferParams, transfer_lamports}
+    }
 };
 
 pub fn settle_empty_auction(ctx: Context<SettleAuction>) -> ProgramResult {
@@ -56,23 +53,11 @@ pub fn settle(ctx: Context<SettleAuction>) -> ProgramResult {
 
     // ============================
 
-    let amount = ctx.accounts.auction.amount;
-    let treasury = &ctx.accounts.treasury;
-    let auction_as_payer = &ctx.accounts.auction.to_account_info();
-
-    let amount_after_deduction: u64 = auction_as_payer
-        .lamports()
-        .checked_sub(amount)
-        .ok_or(ErrorCode::InsufficientAccountBalance)?;
-
-    // sub from auction
-    **auction_as_payer.lamports.borrow_mut() = amount_after_deduction;
-
-    // add lamports to treasury account
-    **treasury.lamports.borrow_mut() = treasury
-        .lamports()
-        .checked_add(amount)
-        .ok_or(ErrorCode::NumericalOverflowError)?;
+    transfer_lamports(
+        &ctx.accounts.auction.to_account_info(),
+        &ctx.accounts.treasury.to_account_info(),
+        ctx.accounts.auction.amount
+    )?;
 
     // ============================
 

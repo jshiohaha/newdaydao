@@ -1,10 +1,9 @@
-use anchor_lang::prelude::*;
-
-// local imports
-use crate::{
-    structs::auction_factory::AuctionFactoryData, util::general::get_current_timestamp,
-    util::vec::update_vec,
-    constant::MAX_BIDS_TO_RECORD
+use {
+    crate::{
+        constant::MAX_BIDS_TO_RECORD, structs::auction_factory::AuctionFactoryData,
+        util::general::get_current_timestamp, util::vec::update_vec,
+    },
+    anchor_lang::prelude::*,
 };
 
 #[repr(C)]

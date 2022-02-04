@@ -1,8 +1,10 @@
-use {metaplex_token_metadata::state::Creator, solana_program::pubkey::Pubkey};
-
-use crate::constant::{
-    AUCTION_CREATOR_SHARE, AUCTION_FACTORY_CREATOR_SHARE, SELLER_FEE_BASIS_POINTS, TOKEN_BASE_NAME,
-    TOKEN_SYMBOL,
+use {
+    crate::constant::{
+        AUCTION_CREATOR_SHARE, AUCTION_FACTORY_CREATOR_SHARE, SELLER_FEE_BASIS_POINTS,
+        TOKEN_BASE_NAME, TOKEN_SYMBOL,
+    },
+    metaplex_token_metadata::state::Creator,
+    solana_program::pubkey::Pubkey,
 };
 
 // todo: update based on new metaplex metadata standard?
@@ -16,6 +18,9 @@ pub struct MetadataInfo {
     pub is_mutable: bool,
 }
 
+// creators will be auction & auction factory account for purposes of secondary
+// royalties since treasury can change. we will include an on-chain function to dump
+// lamports from auction factory PDA to treasury.
 pub fn get_metadata_info(
     auction: Pubkey,
     auction_factory: Pubkey,

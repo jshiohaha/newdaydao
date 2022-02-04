@@ -1,9 +1,9 @@
-use anchor_lang::prelude::*;
-
-// local imports
-use crate::{
-    context::PlaceBid, error::ErrorCode, instructions::transfer::transfer_from_signer,
-    structs::auction::Auction,
+use {
+    anchor_lang::prelude::*,
+    crate::{
+        context::PlaceBid, error::ErrorCode, instructions::transfer::transfer_from_signer,
+        structs::auction::Auction,
+    }
 };
 
 pub fn return_losing_bid_amount(ctx: &Context<PlaceBid>) -> ProgramResult {

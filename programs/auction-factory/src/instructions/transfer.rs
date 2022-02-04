@@ -1,12 +1,11 @@
 use {
+    crate::error::ErrorCode,
     anchor_lang::{prelude::*, solana_program},
-    solana_program::program::{invoke_signed, invoke},
-    spl_token::instruction::transfer
+    solana_program::program::{invoke, invoke_signed},
+    spl_token::instruction::transfer,
 };
-pub use spl_token::ID;
 
-// local imports
-use crate::error::ErrorCode;
+pub use spl_token::ID;
 
 #[derive(Accounts)]
 pub struct TransferLamports<'info> {
@@ -74,4 +73,26 @@ pub fn spl_token_transfer(params: TokenTransferParams<'_, '_>) -> ProgramResult 
     );
 
     result.map_err(|_| ErrorCode::TokenTransferFailed.into())
+}
+
+pub fn transfer_lamports(
+    source: &AccountInfo<'_>,
+    dest: &AccountInfo<'_>,
+    amount: u64
+) -> ProgramResult {
+    let amount_after_deduction: u64 = source
+        .lamports()
+        .checked_sub(amount)
+        .ok_or(ErrorCode::InsufficientAccountBalance)?;
+
+    // sub from source
+    **source.lamports.borrow_mut() = amount_after_deduction;
+
+    // add lamports to dest
+    **dest.lamports.borrow_mut() = dest
+        .lamports()
+        .checked_add(amount)
+        .ok_or(ErrorCode::NumericalOverflowError)?;
+
+    Ok(())
 }

@@ -1,7 +1,4 @@
-use anchor_lang::prelude::*;
-
-// local imports
-use crate::util::general::get_current_timestamp;
+use {crate::util::general::get_current_timestamp, anchor_lang::prelude::*};
 
 #[repr(C)]
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Debug)]
@@ -112,7 +109,7 @@ impl AuctionFactory {
 }
 
 // auction factory account struct sizing for account init
-pub const AUCTION_FACTORY_DATA_SPACE: usize = 
+pub const AUCTION_FACTORY_DATA_SPACE: usize =
     // time_buffer
     8 +
     // min_bid_percentage_increase

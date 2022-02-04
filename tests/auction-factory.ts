@@ -2,7 +2,7 @@ import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
 import * as lodash from "lodash";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { PublicKey, SystemProgram, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { PublicKey, SystemProgram, Keypair, LAMPORTS_PER_SOL, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import * as assert from "assert";
 
 import { PdaConfig, Network } from "./types";
@@ -355,6 +355,52 @@ describe("execute basic auction factory functions", async () => {
             auctionFactoryAccount.treasury.toString() ===
                 updatedTreasury.publicKey.toString()
         );
+    });
+
+    it("Transfer excess auction factory lamports to treasury", async () => {
+        let auctionFactoryAccount = await program.account.auctionFactory.fetch(
+            auctionFactory.address
+        );
+
+        const amountToTransfer = 0.3 * LAMPORTS_PER_SOL;
+
+        // first, give auction factory account some more lamports
+        const fundAuctionFactoryTx = new Transaction()
+            .add(
+                SystemProgram.transfer({
+                    fromPubkey: myWallet.publicKey,
+                    toPubkey: auctionFactory.address,
+                    lamports: amountToTransfer,
+                }),
+            );
+
+        await sendAndConfirmTransaction(
+            program.provider.connection,
+            fundAuctionFactoryTx,
+            [myWallet]
+        );
+
+        const afAccountBalanceBefore =
+            await program.provider.connection.getBalance(auctionFactory.address);
+        const treasuryAccountBalanceBefore =
+            await program.provider.connection.getBalance(auctionFactoryAccount.treasury);
+
+        await program.rpc.transferLamportsToTreasury(auctionFactory.bump, auctionFactoryUuid, {
+            accounts: {
+                payer: myWallet.publicKey,
+                auctionFactory: auctionFactory.address,
+                treasury: auctionFactoryAccount.treasury,
+            },
+            signers: [myWallet],
+        });
+
+        const afAccountBalanceAfter =
+            await program.provider.connection.getBalance(auctionFactory.address);
+        assert.ok(afAccountBalanceBefore - afAccountBalanceAfter === amountToTransfer);
+
+        const treasuryAccountBalanceAfter =
+            await program.provider.connection.getBalance(auctionFactoryAccount.treasury);
+        assert.ok(treasuryAccountBalanceAfter - treasuryAccountBalanceBefore === amountToTransfer);
     });
 
     it("attempt to initialize auction without any config", async () => {
@@ -1759,7 +1805,8 @@ if (network === Network.Localnet && RUN_ALL_TESTS) {
             );
 
             assert.ok(
-                configAccount.updateIdx === new_uris_for_empty_config.length
+                configAccount.updateIdx ===
+                    new_uris_for_empty_config.length % MAX_CONFIG_VEC_SIZE
             );
             assert.ok(
                 (configAccount.buffer as string[]).length ===

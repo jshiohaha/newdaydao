@@ -1,12 +1,9 @@
 use {
+    crate::{
+        structs::auction::Auction, structs::auction_factory::AuctionFactory,
+        util::general::get_current_timestamp,
+    },
     anchor_lang::prelude::*,
-    std::convert::TryFrom
-};
-
-// local imports
-use crate::{
-    structs::auction::Auction,
-    structs::auction_factory::AuctionFactory
 };
 
 pub fn create(
@@ -14,8 +11,7 @@ pub fn create(
     auction: &mut Auction,
     auction_factory: &mut AuctionFactory,
 ) -> ProgramResult {
-    let clock = Clock::get()?;
-    let current_timestamp = u64::try_from(clock.unix_timestamp).unwrap();
+    let current_timestamp = get_current_timestamp().unwrap();
 
     auction.init(
         bump,

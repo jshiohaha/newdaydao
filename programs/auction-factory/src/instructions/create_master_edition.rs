@@ -1,11 +1,8 @@
 use {
     anchor_lang::prelude::*,
     anchor_spl::token::Token,
-    solana_program::{
-        program::invoke_signed,
-        msg
-    },
     metaplex_token_metadata::instruction::create_master_edition,
+    solana_program::{msg, program::invoke_signed},
 };
 
 #[derive(Accounts)]
