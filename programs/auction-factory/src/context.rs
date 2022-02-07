@@ -66,6 +66,7 @@ pub struct CreateTokenMint<'info> {
     sequence: u64
 )]
 pub struct CreateFirstAuction<'info> {
+    #[account(mut)]
     pub payer: Signer<'info>,
     #[account(
         mut,
@@ -103,6 +104,7 @@ pub struct CreateFirstAuction<'info> {
     next_seq: u64
 )]
 pub struct CreateNextAuction<'info> {
+    #[account(mut)]
     pub payer: Signer<'info>,
     #[account(
         mut,
@@ -183,6 +185,7 @@ pub struct SupplyResource<'info> {
     )]
     pub auction: Account<'info, Auction>,
     #[account(
+        mut,
         constraint = mint.decimals == 0,
         constraint = mint.supply == 1,
         constraint = mint.freeze_authority.unwrap() == auction.key(),
@@ -240,6 +243,7 @@ pub struct PlaceBid<'info> {
     pub system_program: Program<'info, System>,
 }
 
+// todo: add contraints for auction + bidder token account
 #[derive(Accounts)]
 #[instruction(
     bidder_token_account_bump: u8,
@@ -249,6 +253,7 @@ pub struct PlaceBid<'info> {
     sequence: u64
 )]
 pub struct SettleAuction<'info> {
+    #[account(mut)]
     pub payer: Signer<'info>,
     #[account(
         mut,
@@ -353,6 +358,7 @@ pub struct CloseAuctionTokenAccount<'info> {
 #[derive(Accounts)]
 #[instruction(bump: u8, uuid: String, max_supply: u32)]
 pub struct InitializeConfig<'info> {
+    #[account(mut)]
     pub payer: Signer<'info>,
     #[account(init,
         seeds = [
@@ -378,6 +384,7 @@ pub struct InitializeConfig<'info> {
 )]
 pub struct InitializeAuctionFactory<'info> {
     // payer is initial auction factory authority
+    #[account(mut)]
     pub payer: Signer<'info>,
     // is this sufficient to verify treasury account exists? if not, there is risk treasury funds
     // will be lost again until updated.

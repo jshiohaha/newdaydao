@@ -19,10 +19,9 @@ use {
         metadata::get_metadata_info,
     },
     util::general::get_available_lamports,
-    error::ErrorCode,
 };
 
-declare_id!("44viVLXpTZ5qTdtHDN59iYLABZUaw8EBwnTN4ygehukp");
+declare_id!("77mmXYT473UjsGP7pwmbNjSVG37Fe7LjwnG9eVapiRSK");
 
 #[program]
 pub mod auction_factory {

@@ -19,7 +19,7 @@ pub enum ErrorCode {
     InactiveAuctionFactory,
     #[msg("Treasury mismatch!")]
     TreasuryMismatch,
-    #[msg("Uuid must be length 10")]
+    #[msg("Uuid must be length 5")]
     AuctionFactoryUuidInvalidLengthError,
     #[msg("Uuid must be length 5")]
     ConfigUuidInvalidLengthError,
