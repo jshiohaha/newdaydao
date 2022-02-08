@@ -5,8 +5,8 @@ import {
     NodeWallet,
     AuctionFactoryClient,
     generateSeed,
-    AUCTION_FACTORY_UUID_LEN,
-    CONFIG_UUID_LEN,
+    AUCTION_FACTORY_SEED_LEN,
+    CONFIG_SEED_LEN,
     AuctionFactoryData,
     TokenAccount,
 } from "../../sdk/src";
@@ -44,7 +44,7 @@ export class AuctionFactoryTestClient extends AuctionFactoryClient {
     };
 
     initConfig = async (masSupply: number) => {
-        const seed = generateSeed(CONFIG_UUID_LEN);
+        const seed = generateSeed(CONFIG_SEED_LEN);
         const [configAddress, configBump] = await this.findConfigPda(seed);
 
         this.auctionFactoryAuthority = await this.nodeWallet.createFundedWallet(
@@ -76,7 +76,7 @@ export class AuctionFactoryTestClient extends AuctionFactoryClient {
         minReservePrice: number,
         seed?: string
     ) => {
-        const _seed = seed ? seed : generateSeed(AUCTION_FACTORY_UUID_LEN);
+        const _seed = seed ? seed : generateSeed(AUCTION_FACTORY_SEED_LEN);
         const [afAddress, afBump] = await this.findAuctionFactoryPda(_seed);
 
         const config = {

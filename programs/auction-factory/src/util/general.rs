@@ -45,7 +45,6 @@ pub fn get_available_lamports(account: &AccountInfo<'_>) -> Result<u64, ProgramE
     Ok(non_rent_lamports)
 }
 
-
 pub fn assert_initialized<T: Pack + IsInitialized>(
     account_info: &AccountInfo,
 ) -> Result<T, ProgramError> {

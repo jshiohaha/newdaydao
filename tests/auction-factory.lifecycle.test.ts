@@ -42,7 +42,7 @@ describe("execute basic auction factory functions", async () => {
         assert.ok((configAccount.buffer as string[]).length === 0);
     });
 
-    it("attempt to initialize auction factory with invalid seed", async () => {
+    it("attempt to initialize auction factory with seed of invalid len", async () => {
         expectThrowsAsync(async () => {
             await client.initializeAuctionFactory(
                 durationInSeconds,

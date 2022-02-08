@@ -17,8 +17,8 @@ pub struct AuctionFactoryData {
 #[derive(Default)]
 pub struct AuctionFactory {
     pub bump: u8,
-    // auction factory uuid
-    pub uuid: String,
+    // auction factory seed
+    pub seed: String,
     // number of auctions managed by sequence
     pub sequence: u64,
     // authority with permission to modify this auction
@@ -46,7 +46,7 @@ impl AuctionFactory {
     pub fn init(
         &mut self,
         bump: u8,
-        uuid: String,
+        seed: String,
         authority: Pubkey,
         treasury: Pubkey,
         config: Pubkey,
@@ -55,7 +55,7 @@ impl AuctionFactory {
         let current_timestamp = get_current_timestamp().unwrap();
 
         self.bump = bump;
-        self.uuid = uuid;
+        self.seed = seed;
         self.sequence = 0;
         self.authority = authority;
         self.is_active = false;
@@ -124,7 +124,7 @@ pub const AUCTION_FACTORY_ACCOUNT_SPACE: usize =
     8 +
     // bump
     1 +
-    // uuid string of len 10
+    // seed string of len 10
     4 + 10 +
     // sequence
     8 +

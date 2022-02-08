@@ -16,5 +16,5 @@ export const AUX_SEED = "aux";
 export const AUX_FAX_SEED = "aux_fax";
 export const URI_CONFIG_SEED = "config";
 
-export const AUCTION_FACTORY_UUID_LEN = 5;
-export const CONFIG_UUID_LEN = 5;
+export const AUCTION_FACTORY_SEED_LEN = 5;
+export const CONFIG_SEED_LEN = 5;

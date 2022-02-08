@@ -1,7 +1,7 @@
 use {
     anchor_lang::prelude::*,
-    metaplex_token_metadata::instruction::update_metadata_accounts,
-    solana_program::{msg, program::invoke_signed},
+    mpl_token_metadata::instruction::update_metadata_accounts_v2,
+    solana_program::program::invoke_signed
 };
 
 #[derive(Accounts)]
@@ -16,16 +16,15 @@ pub struct UpdateMetadata<'info> {
 pub fn update_metadata_after_primary_sale<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, UpdateMetadata<'info>>,
 ) -> ProgramResult {
-    msg!("Invoking update metadata CPI call");
-
     invoke_signed(
-        &update_metadata_accounts(
+        &update_metadata_accounts_v2(
             *ctx.accounts.token_metadata_program.key,
             *ctx.accounts.metadata.key,
             *ctx.accounts.update_authority.key,
             None,       // update authority stays the same
             None,       // no data change
             Some(true), // primary_sale_happened
+            None,       // no change to is_mutable
         ),
         &[
             ctx.accounts.token_metadata_program.to_account_info(),
@@ -34,8 +33,6 @@ pub fn update_metadata_after_primary_sale<'a, 'b, 'c, 'info>(
         ],
         ctx.signer_seeds,
     )?;
-
-    msg!("Updated metadata");
 
     Ok(())
 }

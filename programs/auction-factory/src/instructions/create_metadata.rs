@@ -2,8 +2,8 @@ use {
     crate::structs::metadata::MetadataInfo,
     anchor_lang::prelude::*,
     anchor_spl::token::Token,
-    metaplex_token_metadata::instruction::create_metadata_accounts,
-    solana_program::{msg, program::invoke_signed},
+    mpl_token_metadata::instruction::create_metadata_accounts_v2,
+    solana_program::program::invoke_signed
 };
 
 #[derive(Accounts)]
@@ -28,10 +28,8 @@ pub fn create_metadata<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, CreateMetadata<'info>>,
     metadata_info: MetadataInfo,
 ) -> ProgramResult {
-    msg!("Invoking create metadata CPI call");
-
     invoke_signed(
-        &create_metadata_accounts(
+        &create_metadata_accounts_v2(
             *ctx.accounts.token_metadata_program.key,
             *ctx.accounts.metadata.key,
             ctx.accounts.mint.key(),
@@ -45,6 +43,8 @@ pub fn create_metadata<'a, 'b, 'c, 'info>(
             metadata_info.seller_fee_basis_points,
             metadata_info.update_authority_is_signer,
             metadata_info.is_mutable,
+            metadata_info.collection,
+            metadata_info.uses,
         ),
         &[
             ctx.accounts.metadata.clone(),
@@ -57,8 +57,6 @@ pub fn create_metadata<'a, 'b, 'c, 'info>(
         ],
         ctx.signer_seeds,
     )?;
-
-    msg!("Created metadata");
 
     Ok(())
 }

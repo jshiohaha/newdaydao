@@ -1,8 +1,8 @@
 use {
     anchor_lang::prelude::*,
     anchor_spl::token::Token,
-    metaplex_token_metadata::instruction::create_master_edition,
-    solana_program::{msg, program::invoke_signed},
+    mpl_token_metadata::instruction::create_master_edition_v3,
+    solana_program::program::invoke_signed
 };
 
 #[derive(Accounts)]
@@ -27,12 +27,8 @@ pub struct CreateMasterEdition<'info> {
 pub fn create_master_edition_metadata<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, CreateMasterEdition<'info>>,
 ) -> ProgramResult {
-    let max_supply = 0;
-
-    msg!("Invoking create master edition CPI call");
-
     invoke_signed(
-        &create_master_edition(
+        &create_master_edition_v3(
             *ctx.accounts.token_metadata_program.key,
             *ctx.accounts.master_edition.key,
             *ctx.accounts.mint.key,
@@ -40,7 +36,7 @@ pub fn create_master_edition_metadata<'a, 'b, 'c, 'info>(
             *ctx.accounts.mint_authority.key,
             *ctx.accounts.metadata.key,
             *ctx.accounts.payer.key,
-            Some(max_supply),
+            Some(0),
         ),
         &[
             ctx.accounts.master_edition.to_account_info(),
@@ -56,8 +52,6 @@ pub fn create_master_edition_metadata<'a, 'b, 'c, 'info>(
         ],
         ctx.signer_seeds,
     )?;
-
-    msg!("Created master edition metadata");
 
     Ok(())
 }

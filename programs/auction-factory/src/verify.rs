@@ -9,7 +9,7 @@ use {
         util::general::{
             assert_initialized, assert_owned_by, get_auction_account_address, get_current_timestamp,
         },
-        constant::{AUCTION_FACTORY_UUID_LEN, CONFIG_UUID_LEN}
+        constant::{AUCTION_FACTORY_SEED_LEN, CONFIG_SEED_LEN}
     }
 };
 
@@ -251,20 +251,20 @@ pub fn verify_bidder_token_account(
     Ok(())
 }
 
-pub fn verify_auction_factory_uuid(
-    uuid: &str
+pub fn verify_auction_factory_seed(
+    seed: &str
 ) -> ProgramResult {
-    if uuid.len() != AUCTION_FACTORY_UUID_LEN {
+    if seed.len() != AUCTION_FACTORY_SEED_LEN {
         return Err(ErrorCode::AuctionFactoryUuidInvalidLengthError.into());
     }
 
     Ok(())
 }
 
-pub fn verify_config_uuid(
-    uuid: &str
+pub fn verify_config_seed(
+    seed: &str
 ) -> ProgramResult {
-    if uuid.len() != CONFIG_UUID_LEN {
+    if seed.len() != CONFIG_SEED_LEN {
         return Err(ErrorCode::ConfigUuidInvalidLengthError.into());
     }
 

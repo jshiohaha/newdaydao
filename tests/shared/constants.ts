@@ -7,8 +7,8 @@ export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 export const DEFAULT_ALPHABET =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
-export const AUCTION_FACTORY_UUID_LEN = 5;
-export const CONFIG_UUID_LEN = 5;
+export const AUCTION_FACTORY_SEED_LEN = 5;
+export const CONFIG_SEED_LEN = 5;
 
 // ============================================================================
 // combined with network check (== localnet), boolean controls which tests are run.

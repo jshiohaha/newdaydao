@@ -39,7 +39,7 @@ use {
 #[derive(Default)]
 pub struct Config {
     pub bump: u8,
-    pub uuid: String,
+    pub seed: String,
     pub max_supply: u32,
     pub update_idx: u32,
     pub is_updated: bool,
@@ -47,9 +47,9 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn init(&mut self, bump: u8, max_supply: u32, uuid: String) {
+    pub fn init(&mut self, bump: u8, max_supply: u32, seed: String) {
         self.bump = bump;
-        self.uuid = uuid;
+        self.seed = seed;
         self.max_supply = max_supply;
         // idx to update next
         self.update_idx = 0;

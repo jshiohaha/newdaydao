@@ -16,9 +16,11 @@ use {
     structs::{
         auction::Auction,
         auction_factory::{AuctionFactory, AuctionFactoryData},
-        metadata::get_metadata_info,
     },
-    util::general::get_available_lamports,
+    util::{
+        general::get_available_lamports,
+        metadata::provide_metadata
+    },
 };
 
 declare_id!("77mmXYT473UjsGP7pwmbNjSVG37Fe7LjwnG9eVapiRSK");
@@ -34,11 +36,11 @@ pub mod auction_factory {
     pub fn mint_to_auction(
         ctx: Context<CreateTokenMint>,
         _auction_factory_bump: u8,
-        _uuid: String,
-        _auction_bump: u8,
-        _sequence: u64,
+        _seed: String,
+        auction_bump: u8,
+        sequence: u64,
     ) -> ProgramResult {
-        instructions::mint_token::mint_to_auction(&ctx)?;
+        instructions::mint_token::mint_to_auction(&ctx, auction_bump, sequence)?;
 
         Ok(())
     }
@@ -46,7 +48,7 @@ pub mod auction_factory {
     pub fn create_first_auction(
         ctx: Context<CreateFirstAuction>,
         _auction_factory_bump: u8,
-        _uuid: String,
+        _seed: String,
         auction_bump: u8,
         _sequence: u64,
     ) -> ProgramResult {
@@ -63,7 +65,7 @@ pub mod auction_factory {
     pub fn create_next_auction(
         ctx: Context<CreateNextAuction>,
         _auction_factory_bump: u8,
-        _uuid: String,
+        _seed: String,
         _current_auction_bump: u8,
         next_auction_bump: u8,
         _current_seq: u64,
@@ -84,12 +86,12 @@ pub mod auction_factory {
     // otherwise, user might have to sign 2 separate transactions when creating an auction & supplying a resource to that auction.
     pub fn supply_resource_to_auction(
         ctx: Context<SupplyResource>,
-        _auction_factory_bump: u8,
-        _uuid: String,
-        _auction_bump: u8,
+        auction_factory_bump: u8,
+        seed: String,
+        auction_bump: u8,
         _config_bump: u8,
-        _config_uuid: String,
-        _sequence: u64,
+        _config_seed: String,
+        sequence: u64,
     ) -> ProgramResult {
         // i think mint & create metadata (NFT) logic could be moved to a separate program & invoked via CPI.
         // that would decouple the auction from NFT logic. this option is def more attractive in the case that
@@ -114,42 +116,51 @@ pub mod auction_factory {
 
         msg!("fetched {} from config", uri);
 
-        let metadata_info = get_metadata_info(
+        let auction_factory_key = ctx.accounts.auction_factory.key();
+        let metadata_info = provide_metadata(
             ctx.accounts.auction.key(),
-            ctx.accounts.auction_factory.key(),
+            auction_factory_key,
             current_sequence,
             uri,
         );
 
-        let auction_factory_key = ctx.accounts.auction_factory.key();
-        let sequence = ctx.accounts.auction.sequence.to_string();
-        let bump = ctx.accounts.auction.bump;
-
-        let seeds = &[
+        let seq_str = sequence.to_string();
+        let auction_seeds = &[
             AUX_SEED.as_bytes(),
             auction_factory_key.as_ref(),
-            sequence.as_bytes(),
-            &[bump],
+            seq_str.as_bytes(),
+            &[auction_bump],
         ];
 
         instructions::create_metadata::create_metadata(
             ctx.accounts
                 .into_create_metadata_context()
-                .with_signer(&[seeds]),
+                .with_signer(&[auction_seeds]),
             metadata_info,
         )?;
 
         instructions::create_master_edition::create_master_edition_metadata(
             ctx.accounts
                 .into_create_master_edition_metadata_context()
-                .with_signer(&[seeds]),
+                .with_signer(&[auction_seeds]),
         )?;
 
         // update token metadata so that primary_sale_happened = true
         instructions::update_metadata::update_metadata_after_primary_sale(
             ctx.accounts
-                .into_update_metadata_authority()
-                .with_signer(&[seeds]),
+                .into_update_metadata_context()
+                .with_signer(&[auction_seeds]),
+        )?;
+
+        // auction factory immediately signs metadata as a creator so that it doesn't have to do later
+        instructions::sign_metadata::sign_token_metadata(
+            ctx.accounts
+                .into_sign_metadata_context()
+                .with_signer(&[&[
+                    AUX_FACTORY_SEED.as_bytes(),
+                    seed.as_bytes(),
+                    &[auction_factory_bump],
+                ]])
         )?;
 
         ctx.accounts.auction.add_resource(ctx.accounts.mint.key());
@@ -160,7 +171,7 @@ pub mod auction_factory {
     pub fn place_bid(
         ctx: Context<PlaceBid>,
         _auction_factory_bump: u8,
-        _uuid: String,
+        _seed: String,
         _auction_bump: u8,
         _sequence: u64,
         amount: u64,
@@ -204,11 +215,11 @@ pub mod auction_factory {
         ctx: Context<SettleAuction>,
         bidder_account_bump: u8,
         _auction_factory_bump: u8,
-        _uuid: String,
-        _auction_bump: u8,
-        _sequence: u64,
+        _seed: String,
+        auction_bump: u8,
+        sequence: u64,
     ) -> ProgramResult {
-        // avoid auction factory is active check. we should be able to settle an ongoing auction regardless of auction factory status.
+        // avoid auction factory is active check. users should have option to settle current auction regardless of auction factory status.
         verify::verify_auction_address_for_factory(
             ctx.accounts.auction_factory.get_current_sequence(),
             ctx.accounts.auction_factory.key(),
@@ -222,7 +233,7 @@ pub mod auction_factory {
                 "settling auction with no bids: {}",
                 ctx.accounts.auction.key().to_string()
             );
-            instructions::settle_auction::settle_empty_auction(ctx)?;
+            instructions::settle_auction::settle_empty_auction(ctx, auction_bump, sequence)?;
         } else {
             msg!(
                 "settling auction [{}] with winning bid = {}",
@@ -236,7 +247,7 @@ pub mod auction_factory {
                 bidder_account_bump,
             )?;
 
-            instructions::settle_auction::settle(ctx)?;
+            instructions::settle_auction::settle(ctx, auction_bump, sequence)?;
         }
 
         Ok(())
@@ -245,22 +256,19 @@ pub mod auction_factory {
     pub fn close_auction_token_account(
         ctx: Context<CloseAuctionTokenAccount>,
         _auction_factory_bump: u8,
-        _uuid: String,
-        _auction_bump: u8,
-        _sequence: u64,
+        _seed: String,
+        auction_bump: u8,
+        sequence: u64,
     ) -> ProgramResult {
-        let auction_factory_key = ctx.accounts.auction_factory.key();
-        let sequence = ctx.accounts.auction.sequence.to_string();
-        let bump = ctx.accounts.auction.bump;
-
+        let seq_str = sequence.to_string();
         token::close_account(
             ctx.accounts
                 .into_close_token_account_context()
                 .with_signer(&[&[
                     AUX_SEED.as_bytes(),
-                    auction_factory_key.as_ref(),
-                    sequence.as_bytes(),
-                    &[bump],
+                    ctx.accounts.auction_factory.key().as_ref(),
+                    seq_str.as_bytes(),
+                    &[auction_bump],
                 ]]),
         )?;
 
@@ -274,12 +282,12 @@ pub mod auction_factory {
     pub fn initialize_config(
         ctx: Context<InitializeConfig>,
         bump: u8,
-        uuid: String,
+        seed: String,
         max_supply: u32,
     ) -> ProgramResult {
-        verify::verify_config_uuid(&uuid)?;
+        verify::verify_config_seed(&seed)?;
 
-        ctx.accounts.config.init(bump, max_supply, uuid);
+        ctx.accounts.config.init(bump, max_supply, seed);
 
         Ok(())
     }
@@ -287,16 +295,16 @@ pub mod auction_factory {
     pub fn initialize_auction_factory(
         ctx: Context<InitializeAuctionFactory>,
         bump: u8,
-        uuid: String,
+        seed: String,
         _config_bump: u8,
-        _config_uuid: String,
+        _config_seed: String,
         data: AuctionFactoryData,
     ) -> ProgramResult {
-        verify::verify_auction_factory_uuid(&uuid)?;
+        verify::verify_auction_factory_seed(&seed)?;
 
         ctx.accounts.auction_factory.init(
             bump,
-            uuid,
+            seed,
             ctx.accounts.payer.key(),
             ctx.accounts.treasury.key(),
             ctx.accounts.config.key(),
@@ -312,9 +320,9 @@ pub mod auction_factory {
     pub fn add_uris_to_config(
         ctx: Context<AddUrisToConfig>,
         _auction_factory_bump: u8,
-        _uuid: String,
+        _seed: String,
         _config_bump: u8,
-        _config_uuid: String,
+        _config_seed: String,
         config_data: Vec<String>,
     ) -> ProgramResult {
         ctx.accounts
@@ -327,7 +335,7 @@ pub mod auction_factory {
     pub fn toggle_auction_factory_status(
         ctx: Context<ModifyAuctionFactory>,
         _bump: u8,
-        _uuid: String,
+        _seed: String,
     ) -> ProgramResult {
         verify::verify_auction_factory_authority(
             ctx.accounts.payer.key(),
@@ -348,7 +356,7 @@ pub mod auction_factory {
     pub fn modify_auction_factory_data(
         ctx: Context<ModifyAuctionFactory>,
         _bump: u8,
-        _uuid: String,
+        _seed: String,
         data: AuctionFactoryData,
     ) -> ProgramResult {
         verify::verify_auction_factory_authority(
@@ -365,7 +373,7 @@ pub mod auction_factory {
     pub fn update_authority(
         ctx: Context<UpdateAuctionFactoryAuthority>,
         _bump: u8,
-        _uuid: String,
+        _seed: String,
     ) -> ProgramResult {
         verify::verify_auction_factory_authority(
             ctx.accounts.payer.key(),
@@ -380,7 +388,7 @@ pub mod auction_factory {
     pub fn update_treasury(
         ctx: Context<UpdateAuctionFactoryTreasury>,
         _bump: u8,
-        _uuid: String,
+        _seed: String,
     ) -> ProgramResult {
         verify::verify_auction_factory_authority(
             ctx.accounts.payer.key(),
@@ -397,7 +405,7 @@ pub mod auction_factory {
     pub fn transfer_lamports_to_treasury(
         ctx: Context<TransferAuctionFactoryLamportsToTreasury>,
         _bump: u8,
-        _uuid: String,
+        _seed: String,
     ) -> ProgramResult {
         verify::verify_auction_factory_authority(
             ctx.accounts.payer.key(),

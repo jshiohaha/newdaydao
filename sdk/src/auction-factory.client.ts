@@ -124,10 +124,10 @@ export class AuctionFactoryClient extends AccountUtils {
     // find PDA accounts
     // ============================================================================
 
-    findAuctionFactoryPda = async (uuid: string) => {
+    findAuctionFactoryPda = async (seed: string) => {
         return this.findProgramAddress(this.program.programId, [
             AUX_FAX_SEED,
-            uuid,
+            seed,
         ]);
     };
 
@@ -139,10 +139,10 @@ export class AuctionFactoryClient extends AccountUtils {
         ]);
     };
 
-    findConfigPda = async (uuid: string) => {
+    findConfigPda = async (seed: string) => {
         return this.findProgramAddress(this.program.programId, [
             URI_CONFIG_SEED,
-            uuid,
+            seed,
         ]);
     };
 

@@ -41,9 +41,15 @@ pub struct Auction {
     pub bid_time: u64,
     // address of the resource being auctioned; should not be null.
     pub resource: Option<Pubkey>,
-    // vec of bids submitted
+    // vec of submitted bids. some PDA for each bid tied to an auction could enable tracking an ininite
+    // number of bids. but, that poses the question — why care about storing that much data? this would
+    // also require each bidder to create another account for each bid submitted. seems like a waste.
+    // given the current size of an auction, we can extend the bid vec to ~200 bids before hitting the
+    // limit for solana account size.
     pub bids: Vec<Bid>,
-    // token mint address for the SPL token being used to bid; default to SOL
+    // token mint address for the SPL token being used to bid; default to SOL. creating an auction where
+    // bids are demonited in an SPL token means that all bids must use that SPL token.
+    // ancillary note: there is more work to be done before SPL tokens could be used for auctions.
     // pub token_mint: Option<Pubkey>,
 }
 
