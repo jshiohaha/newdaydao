@@ -1,0 +1,12 @@
+# New Day Dao
+
+todos
+- add macros to help with error handling (saber or drift have ex of this)
+ - saber https://github.com/saber-hq/vipers/blob/master/vipers/src/assert.rs#L80-L86
+ - drift https://github.com/drift-labs/protocol-v1/blob/crispheaney/off-chain-orders/programs/clearing_house/src/error.rs#L122
+- also, more macros in general? seems i'm probably doing more work than i need to.
+
+- get rid of circular buffer in favor of PDA per config element
+- refactor config/token metadata logic into its own program (token_descriptor)
+
+- more documentation in this readdme/elsewhere
