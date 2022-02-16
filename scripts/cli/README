@@ -1,0 +1,9 @@
+cli usage examples
+
+ts-node ./src/auction-factory-cli.ts init_config --env devnet --keypair /Users/jacobshiohira/.config/solana/id.json --seed 00000 --maxSupply 100
+ts-node ./src/auction-factory-cli.ts show_config --env devnet --keypair /Users/jacobshiohira/.config/solana/id.json --seed 00000
+ts-node ./src/auction-factory-cli.ts init_auction_factory --env devnet --keypair /Users/jacobshiohira/.config/solana/id.json --configSeed 00000 --seed 00000 --treasury CdQoc4TaBkXpWvMUumUmAGR1jdG2dsMG3YEa5TaVU7mG --duration 100 --timeBuffer 0 --minBidPercentageIncrease 5 --minReservePrice 0
+ts-node ./src/auction-factory-cli.ts activate_auction_factory --env devnet --keypair /Users/jacobshiohira/.config/solana/id.json --seed 00000
+ts-node ./src/auction-factory-cli.ts show_auction_factory --env devnet --keypair /Users/jacobshiohira/.config/solana/id.json --seed 00000
+ts-node ./src/auction-factory-cli.ts add_config --env devnet --keypair /Users/jacobshiohira/.config/solana/id.json --seed 00000 --configSeed 00000 --data 1,2,3,4,5
+
