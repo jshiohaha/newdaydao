@@ -1,62 +1,39 @@
 import * as anchor from "@project-serum/anchor";
-import { Idl, Program, Provider, Wallet } from "@project-serum/anchor";
+import { Idl, Program, Provider, Wallet, BN } from "@project-serum/anchor";
 import {
     Connection,
     Keypair,
     PublicKey,
     SystemProgram,
     SYSVAR_RENT_PUBKEY,
-    Transaction,
-    sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import * as lodash from "lodash";
 import { TOKEN_PROGRAM_ID, Token, MintLayout } from "@solana/spl-token";
 
-import { isBlank } from "./common/util";
+import { isBlank, getSignersFromPayer } from "./common/util";
 import { AuctionFactory as AuctionFactoryProgram } from "./types/auction_factory";
 import { AccountUtils } from "./common/account-utils";
-import { AUX_FAX_SEED, AUX_SEED, URI_CONFIG_SEED, TOKEN_METADATA_PROGRAM_ID, isKp } from "./common";
-
-export interface TokenAccount {
-    address: PublicKey;
-    bump: number;
-}
-
-export interface Config {
-    bump: number;
-    address: PublicKey;
-    seed?: string;
-}
-
-export interface AuctionConfig {
-    config: Config;
-    sequence: number;
-    leadingBidder?: PublicKey;
-    amount?: number;
-}
-
-export interface AuctionFactoryConfig {
-    config: Config;
-    treasury: PublicKey;
-    // authority: PublicKey;
-}
-
-export interface AuctionFactoryData {
-    duration: anchor.BN;
-    timeBuffer: anchor.BN;
-    minBidPercentageIncrease: anchor.BN;
-    minReservePrice: anchor.BN;
-}
+import {
+    AUX_FAX_SEED,
+    AUX_SEED,
+    URI_CONFIG_SEED,
+    TOKEN_METADATA_PROGRAM_ID,
+} from "./common";
+import {
+    AuctionFactoryConfig,
+    Config,
+    AuctionFactoryData,
+    TokenAccount,
+    AuctionPdaData,
+} from "./common/types";
+import { BN_ZERO, BN_ONE } from "./common/constant";
 
 export class AuctionFactoryClient extends AccountUtils {
     wallet: anchor.Wallet;
     provider: anchor.Provider;
     program: anchor.Program<AuctionFactoryProgram>;
 
-    isVerbose: boolean;
-
     auctionFactory: AuctionFactoryConfig;
-    auction: AuctionConfig;
     config: Config;
     maxSupply: number;
 
@@ -70,14 +47,7 @@ export class AuctionFactoryClient extends AccountUtils {
         this.wallet = wallet;
         this.setProvider();
         this.setAuctionFactoryProgram(idl, programId);
-
-        // verbose by default in test
-        this.isVerbose = idl ? false : true;
     }
-
-    setVerbosity = (verbosity: boolean) => {
-        this.isVerbose = verbosity;
-    };
 
     setProvider = () => {
         this.provider = new Provider(
@@ -116,6 +86,18 @@ export class AuctionFactoryClient extends AccountUtils {
         return this.program.account.auction.fetch(auction);
     };
 
+    fetchAuctionWithSequence = async (sequence: BN) => {
+        const addr = await this.getAuctionAddressWithSequence(sequence);
+        return this.program.account.auction.fetch(addr);
+    };
+
+    fetchCurrentAuction = async () => {
+        const auctionFactory = await this.fetchAuctionFactory(
+            this.auctionFactory.config.address
+        );
+        return await this.fetchAuctionWithSequence(auctionFactory.sequence);
+    };
+
     fetchConfig = async (config: PublicKey) => {
         return this.program.account.config.fetch(config);
     };
@@ -131,7 +113,7 @@ export class AuctionFactoryClient extends AccountUtils {
         ]);
     };
 
-    findAuctionPda = async (sequence: number, auctionFactory: PublicKey) => {
+    findAuctionPda = async (sequence: BN, auctionFactory: PublicKey) => {
         return this.findProgramAddress(this.program.programId, [
             AUX_SEED,
             auctionFactory,
@@ -146,33 +128,91 @@ export class AuctionFactoryClient extends AccountUtils {
         ]);
     };
 
+    fetchAuctionPdaData = async (sequence: BN): Promise<AuctionPdaData> => {
+        const [addr, bump] = await this.findAuctionPda(
+            sequence,
+            this.auctionFactory.config.address
+        );
+
+        return {
+            addr,
+            bump,
+        } as AuctionPdaData;
+    };
+
+    getAuctionAddressWithSequence = async (sequence: BN) => {
+        const [addr, _bump] = await this.findAuctionPda(
+            sequence,
+            this.auctionFactory.config.address
+        );
+
+        return addr;
+    };
+
+    // ============================================================================
+    // account balances
+    // ============================================================================
+
+    getTreasuryBalance = async () => {
+        // verify treasury balance has not changed
+        return await this.getBalance(this.auctionFactory.treasury);
+    };
+
+    getAuctionFactoryBalance = async () => {
+        // verify treasury balance has not changed
+        return await this.getBalance(this.auctionFactory.config.address);
+    };
+
+    // getAuctionBalance();
+    // getAuctionFactoryBalance();
     // ============================================================================
     // auction factory client
     // ============================================================================
 
-    updateConfigDetails = (
-        address: PublicKey,
-        bump: number,
-        seed: string
-    ) => {
+    updateConfigDetails = (address: PublicKey, bump: number, seed: string) => {
         this.config = {
             address,
             bump,
-            seed
-        }
-    }
+            seed,
+        };
+    };
+
+    setAuctionFactoryDetails = (
+        address: PublicKey,
+        bump: number,
+        seed: string,
+        treasury: PublicKey
+    ) => {
+        this.auctionFactory = {
+            config: {
+                address,
+                bump,
+                seed,
+            },
+            treasury
+        };
+    };
 
     updateAuctionFactoryDetails = (
         address: PublicKey,
         bump: number,
-        seed: string
+        seed?: string,
+        treasury?: PublicKey
     ) => {
+        if (!this.auctionFactory) {
+            this.auctionFactory = {} as any;
+        }
+
         this.auctionFactory.config = {
             address,
             bump,
-            seed
+            seed,
+        };
+
+        if (treasury) {
+            this.auctionFactory.treasury = treasury;
         }
-    }
+    };
 
     initialize = async (
         auctionFactory: PublicKey,
@@ -182,21 +222,9 @@ export class AuctionFactoryClient extends AccountUtils {
         treasury: PublicKey,
         payer: PublicKey | Keypair
     ) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+        const signerInfo = getSignersFromPayer(payer);
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
-
-        if (this.isVerbose) {
-            console.log(
-                `initialize auction factory with address ${auctionFactory.toString()} and config ${config}. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
-
+        this.validateConfig();
         await this.program.rpc.initializeAuctionFactory(
             bump,
             seed,
@@ -212,79 +240,48 @@ export class AuctionFactoryClient extends AccountUtils {
                 accounts: {
                     auctionFactory,
                     config: this.config.address,
-                    payer: _payer,
+                    payer: signerInfo.payer,
                     treasury,
                     systemProgram: SystemProgram.programId,
                 },
-                signers,
+                signers: signerInfo.signers,
             }
         );
 
-        this.auctionFactory = {
-            config: {
-                bump,
-                address: auctionFactory,
-                seed,
-            },
-            treasury,
-        };
+        this.setAuctionFactoryDetails(auctionFactory, bump, seed, treasury);
     };
 
     toggleStatus = async (payer: PublicKey | Keypair) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+        const signerInfo = getSignersFromPayer(payer);
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
-
-        if (this.isVerbose) {
-            console.log(
-                `toggling auction factory with address ${this.auctionFactory.config.address.toString()} status. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
-
+        this.validateAuctionFactory();
         await this.program.rpc.toggleAuctionFactoryStatus(
             this.auctionFactory.config.bump,
-            this.auctionFactory.config.seed!,
+            this.auctionFactory.config.seed,
             {
                 accounts: {
-                    payer: _payer,
+                    payer: signerInfo.payer,
                     auctionFactory: this.auctionFactory.config.address,
                 },
-                signers,
+                signers: signerInfo.signers,
             }
         );
     };
 
     modify = async (config: AuctionFactoryData, payer: PublicKey | Keypair) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+        const signerInfo = getSignersFromPayer(payer);
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
-
-        if (this.isVerbose) {
-            console.log(
-                `modify auction factory with address ${this.auctionFactory.config.address.toString()} status and config`,  config, `.payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
-
+        this.validateAuctionFactory();
         await this.program.rpc.modifyAuctionFactoryData(
             this.auctionFactory.config.bump,
-            this.auctionFactory.config.seed!,
+            this.auctionFactory.config.seed,
             config,
             {
                 accounts: {
-                    payer: _payer,
+                    payer: signerInfo.payer,
                     auctionFactory: this.auctionFactory.config.address,
                 },
-                signers,
+                signers: signerInfo.signers,
             }
         );
     };
@@ -293,100 +290,66 @@ export class AuctionFactoryClient extends AccountUtils {
         treasury: PublicKey,
         payer: PublicKey | Keypair
     ) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+        const signerInfo = getSignersFromPayer(payer);
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
-
-        if (this.isVerbose) {
-            console.log(
-                `update auction factory with address ${this.auctionFactory.config.address.toString()} treasury: ${treasury.toString()}. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
-
+        this.validateAuctionFactory();
         await this.program.rpc.updateTreasury(
             this.auctionFactory.config.bump,
-            this.auctionFactory.config.seed!,
+            this.auctionFactory.config.seed,
             {
                 accounts: {
-                    payer: _payer,
+                    payer: signerInfo.payer,
                     auctionFactory: this.auctionFactory.config.address,
                     treasury,
                 },
-                signers,
+                signers: signerInfo.signers,
             }
         );
 
         // update state config
-        this.auctionFactory = {
-            ...this.auctionFactory,
-            treasury,
-        };
+        this.updateAuctionFactoryDetails(
+            this.auctionFactory.config.address,
+            this.auctionFactory.config.bump,
+            this.auctionFactory.config.seed,
+            treasury
+        );
     };
 
     updateAuthority = async (
         authority: PublicKey,
         payer: PublicKey | Keypair
     ) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+        const signerInfo = getSignersFromPayer(payer);
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
-
-        if (this.isVerbose) {
-            console.log(
-                `update auction factory with address ${this.auctionFactory.config.address.toString()} authority: ${authority.toString()}. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
-
+        this.validateAuctionFactory();
         await this.program.rpc.updateAuthority(
             this.auctionFactory.config.bump,
-            this.auctionFactory.config.seed!,
+            this.auctionFactory.config.seed,
             {
                 accounts: {
-                    payer: _payer,
+                    payer: signerInfo.payer,
                     auctionFactory: this.auctionFactory.config.address,
                     newAuthority: authority,
                 },
-                signers,
+                signers: signerInfo.signers,
             }
         );
     };
 
     transferLamports = async (dest: PublicKey, payer: PublicKey | Keypair) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+        const signerInfo = getSignersFromPayer(payer);
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
-
-        if (this.isVerbose) {
-            console.log(
-                `transfer auction factory [${this.auctionFactory.config.address.toString()}] lamports to: ${dest.toString()}. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
-
+        this.validateAuctionFactory();
         await this.program.rpc.transferLamportsToTreasury(
             this.auctionFactory.config.bump,
-            this.auctionFactory.config.seed!,
+            this.auctionFactory.config.seed,
             {
                 accounts: {
-                    payer: _payer,
+                    payer: signerInfo.payer,
                     auctionFactory: this.auctionFactory.config.address,
                     treasury: dest,
                 },
-                signers,
+                signers: signerInfo.signers,
             }
         );
     };
@@ -400,94 +363,79 @@ export class AuctionFactoryClient extends AccountUtils {
     createAuction = async (
         auction: PublicKey,
         bump: number,
-        sequence: number,
+        sequence: BN,
         payer: PublicKey | Keypair
     ) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+        const signerInfo = getSignersFromPayer(payer);
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
+        this.validateAuctionFactory();
+        this.validateConfig();
 
-        if (this.isVerbose) {
-            console.log(
-                `create ${
-                    sequence + 1
-                } auction with address ${auction.toString()}. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
-
-        const seq = new anchor.BN(sequence);
-        if (seq.eq(new anchor.BN(0))) {
+        if (sequence.eq(BN_ONE)) {
             await this.program.rpc.createFirstAuction(
                 this.auctionFactory.config.bump,
                 this.auctionFactory.config.seed,
                 bump,
-                seq,
+                sequence,
                 {
                     accounts: {
-                        payer: _payer,
+                        payer: signerInfo.payer,
                         auctionFactory: this.auctionFactory.config.address,
                         auction,
                         systemProgram: SystemProgram.programId,
                     },
-                    signers,
+                    signers: signerInfo.signers,
                 }
             );
         } else {
+            const [currentAuction, currentAuctionBump] =
+                await this.findAuctionPda(
+                    sequence.sub(BN_ONE),
+                    this.auctionFactory.config.address
+                );
+
             await this.program.rpc.createNextAuction(
                 this.auctionFactory.config.bump,
                 this.auctionFactory.config.seed,
-                this.auction.config.bump,
+                currentAuctionBump,
                 bump,
-                seq.sub(new anchor.BN(1)),
-                seq,
+                sequence.sub(BN_ONE),
+                sequence,
                 {
                     accounts: {
-                        payer: _payer,
+                        payer: signerInfo.payer,
                         auctionFactory: this.auctionFactory.config.address,
-                        currentAuction: this.auction.config.address,
+                        currentAuction,
                         nextAuction: auction,
                         systemProgram: SystemProgram.programId,
                     },
-                    signers,
+                    signers: signerInfo.signers,
                 }
             );
         }
-
-        // update auction state var
-        this.auction = {
-            config: {
-                bump,
-                address: auction,
-            },
-            sequence,
-            leadingBidder: undefined,
-            amount: 0,
-        };
 
         return;
     };
 
     buildMintToAuctionInstruction = async (
-        sequence: number,
+        sequence: BN,
         mint: PublicKey,
         tokenMintAccount: PublicKey
     ) => {
+        this.validateAuctionFactory();
+        const pdaData = await this.fetchAuctionPdaData(sequence);
+
         return this.program.instruction.mintToAuction(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
-            this.auction.config.bump,
+            pdaData.bump,
             new anchor.BN(sequence),
             {
                 accounts: {
                     mint,
                     tokenMintAccount,
                     auctionFactory: this.auctionFactory.config.address,
-                    auction: this.auction.config.address,
+                    auction: pdaData.addr,
                     tokenProgram: TOKEN_PROGRAM_ID,
                 },
             }
@@ -495,106 +443,92 @@ export class AuctionFactoryClient extends AccountUtils {
     };
 
     mintTokenToAuction = async (
+        sequence: BN,
         mint: Keypair,
-        bidderTokenAccount: TokenAccount,
         payer: PublicKey | Keypair
     ) => {
-        const payerIsKeypair = isKp(payer);
-        // @ts-ignore: why is this complaining?
-        const _payer: PublicKey = payerIsKeypair
-            ? (<Keypair>payer).publicKey
-            : payer;
+        const signerInfo = getSignersFromPayer(payer);
 
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
-    
+        console.log(
+            `create token with mint ${mint.publicKey.toString()} to auction with address. payer: ${signerInfo.payer.toString()}. payer and mint as signers.`
+        );
+
+        const pdaData = await this.fetchAuctionPdaData(sequence);
         const [auctionTokenAccount, _auctionTokenAccountBump] =
             await this.getAssociatedTokenAccountAddress(
-                this.auction.config.address,
+                pdaData.addr,
                 mint.publicKey
             );
 
-        const owner = this.auction.config.address;
-        const mintTx = new Transaction()
-            .add(
-                SystemProgram.createAccount({
-                    fromPubkey: _payer,
-                    newAccountPubkey: mint.publicKey,
-                    space: MintLayout.span,
-                    lamports:
-                        await this.program.provider.connection.getMinimumBalanceForRentExemption(
-                            MintLayout.span
-                        ),
-                    programId: TOKEN_PROGRAM_ID,
-                })
-            )
-            //init the mint
-            .add(
-                Token.createInitMintInstruction(
-                    TOKEN_PROGRAM_ID,
-                    mint.publicKey,
-                    0,
-                    owner,
-                    owner
-                )
-            )
-            // create token account for new token
-            .add(
-                this.createAssociatedTokenAccount(
-                    mint.publicKey,
-                    bidderTokenAccount.address,
-                    owner, // owner
-                    _payer // payer
-                )
-            )
-            .add(
-                await this.buildMintToAuctionInstruction(
-                    this.auction.sequence,
-                    mint.publicKey,
-                    auctionTokenAccount
-                )
-            );
-
-        // how to add keypair here?
-        await sendAndConfirmTransaction(
-            this.program.provider.connection,
-            mintTx,
-            [...signers, mint] // todo: does this work in the browser?
+        this.validateAuctionFactory();
+        await this.program.rpc.mintToAuction(
+            this.auctionFactory.config.bump,
+            this.auctionFactory.config.seed,
+            pdaData.bump,
+            sequence,
+            {
+                accounts: {
+                    mint: mint.publicKey,
+                    tokenMintAccount: auctionTokenAccount,
+                    auctionFactory: this.auctionFactory.config.address,
+                    auction: pdaData.addr,
+                    tokenProgram: TOKEN_PROGRAM_ID,
+                },
+                instructions: [
+                    SystemProgram.createAccount({
+                        fromPubkey: signerInfo.payer,
+                        newAccountPubkey: mint.publicKey,
+                        space: MintLayout.span,
+                        lamports:
+                            await this.program.provider.connection.getMinimumBalanceForRentExemption(
+                                MintLayout.span
+                            ),
+                        programId: TOKEN_PROGRAM_ID,
+                    }),
+                    Token.createInitMintInstruction(
+                        TOKEN_PROGRAM_ID,
+                        mint.publicKey,
+                        0,
+                        pdaData.addr,
+                        pdaData.addr
+                    ),
+                    this.createAssociatedTokenAccount(
+                        mint.publicKey,
+                        auctionTokenAccount,
+                        pdaData.addr, // owner
+                        signerInfo.payer // payer
+                    ),
+                ],
+                signers: [...signerInfo.signers, mint],
+            }
         );
     };
 
-    supplyResource = async (mint: PublicKey, payer: PublicKey | Keypair) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+    supplyResource = async (
+        sequence: BN,
+        mint: PublicKey,
+        payer: PublicKey | Keypair
+    ) => {
+        this.validateConfig();
+        this.validateAuctionFactory();
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
-
-        if (this.isVerbose) {
-            console.log(
-                `supply resource with mint ${mint.toString()} to auction with address ${this.auction.config.address.toString()}. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
-
+        const signerInfo = getSignersFromPayer(payer);
         const metadata = await this.getMetadata(mint);
         const masterEdition = await this.getMasterEdition(mint);
-        const seq = new anchor.BN(this.auction.sequence);
+        const pdaData = await this.fetchAuctionPdaData(sequence);
 
         await this.program.rpc.supplyResourceToAuction(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
-            this.auction.config.bump,
+            pdaData.bump,
             this.config.bump,
             this.config.seed,
-            seq,
+            sequence,
             {
                 accounts: {
-                    payer: _payer,
+                    payer: signerInfo.payer,
                     config: this.config.address,
-                    auction: this.auction.config.address,
+                    auction: pdaData.addr,
                     auctionFactory: this.auctionFactory.config.address,
                     metadata,
                     masterEdition,
@@ -604,165 +538,135 @@ export class AuctionFactoryClient extends AccountUtils {
                     systemProgram: SystemProgram.programId,
                     rent: SYSVAR_RENT_PUBKEY,
                 },
-                signers
+                signers: signerInfo.signers,
             }
         );
     };
 
     placeBid = async (
-        amount: number,
+        sequence: BN,
+        amount: BN,
         payer: PublicKey | Keypair // payer is bidder
     ) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+        this.validateAuctionFactory();
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
+        const signerInfo = getSignersFromPayer(payer);
 
-        // todo: if state gets corrupted, we could run into issues here. this helps abstract details
-        // from caller. but, maybe it's better to directly force caller to pass param.
-        const auctionAmount = this.auction.amount ? this.auction.amount : 0;
+        const pdaData = await this.fetchAuctionPdaData(sequence);
+        const auction = await this.fetchAuction(pdaData.addr);
+        const auctionAmount: BN = auction.amount ? auction.amount : BN_ZERO;
         const leadingBidder =
-            this.auction.leadingBidder !== undefined && auctionAmount > 0
-                ? this.auction.leadingBidder
-                : _payer;
+            auction.bidder !== undefined && auctionAmount.gt(BN_ZERO)
+                ? auction.bidder
+                : signerInfo.payer;
 
-        if (this.isVerbose) {
-            console.log(
-                `${_payer.toString()} place bid of ${amount} on auction with address ${this.auction.config.address.toString()}. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
-
-        const seq = new anchor.BN(this.auction.sequence);
         await this.program.rpc.placeBid(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
-            this.auction.config.bump,
-            seq,
+            pdaData.bump,
+            sequence,
             new anchor.BN(amount),
             {
                 accounts: {
-                    bidder: _payer,
+                    bidder: signerInfo.payer,
                     leadingBidder,
                     auctionFactory: this.auctionFactory.config.address,
-                    auction: this.auction.config.address,
+                    auction: pdaData.addr,
                     systemProgram: SystemProgram.programId,
                 },
-                signers,
+                signers: signerInfo.signers,
             }
         );
-
-        // update auction state after latest bid
-        this.auction = {
-            ...this.auction,
-            leadingBidder: _payer as PublicKey,
-            amount,
-        };
     };
 
     settleAuction = async (
-        bidderTokenAccount: TokenAccount,
+        sequence: BN,
+        bidderTokenAccount: TokenAccount | undefined,
         mint: PublicKey,
         payer: PublicKey | Keypair
     ) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+        this.validateAuctionFactory();
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
-
-        if (this.isVerbose) {
-            console.log(
-                `settle auction with address ${this.auction.config.address.toString()}. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
-
+        const signerInfo = getSignersFromPayer(payer);
+        const pdaData = await this.fetchAuctionPdaData(sequence);
         const metadata = await this.getMetadata(mint);
         const [auctionTokenAccount, _auctionTokenAccountBump] =
+            await this.getAssociatedTokenAccountAddress(pdaData.addr, mint);
+
+        const auctionAccount = await this.fetchAuction(pdaData.addr);
+        const randomKeypair = Keypair.generate();
+        const [randomBidderAccount, _randomBidderAccountBump] =
             await this.getAssociatedTokenAccountAddress(
-                this.auction.config.address,
+                randomKeypair.publicKey,
                 mint
             );
+        const bidderTokenAccountData = {
+            address: bidderTokenAccount
+                ? bidderTokenAccount.address
+                : randomBidderAccount,
+            bump: bidderTokenAccount ? bidderTokenAccount.bump : 0,
+        };
 
-        const seq = new anchor.BN(this.auction.sequence);
-
-        const auctionAccount = await this.fetchAuction(this.auction.config.address);
         // make sure to add ixn to create bidder ATA account before attempting to transfer token
-        const preInstructions =
-            auctionAccount.amount.toNumber() > 0
-                ? [
-                      this.createAssociatedTokenAccount(
-                          mint,
-                          bidderTokenAccount.address,
-                          auctionAccount.bidder, // owner
-                          _payer as PublicKey // payer
-                      ),
-                  ]
-                : [];
+        const preInstructions = bidderTokenAccount // if not init, don't use it
+            ? [
+                  this.createAssociatedTokenAccount(
+                      mint,
+                      bidderTokenAccountData.address,
+                      auctionAccount.bidder, // owner
+                      signerInfo.payer // payer
+                  ),
+              ]
+            : [];
 
         await this.program.rpc.settleAuction(
-            bidderTokenAccount.bump,
+            bidderTokenAccountData.bump,
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
-            this.auction.config.bump,
-            seq,
+            pdaData.bump,
+            sequence,
             {
                 accounts: {
-                    payer: _payer,
+                    payer: signerInfo.payer,
                     treasury: this.auctionFactory.treasury,
                     metadata,
                     auctionFactory: this.auctionFactory.config.address,
-                    auction: this.auction.config.address,
+                    auction: pdaData.addr,
                     mint,
-                    bidderTokenAccount: bidderTokenAccount.address,
+                    bidderTokenAccount: bidderTokenAccountData.address,
                     auctionTokenAccount,
                     tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
                     tokenProgram: TOKEN_PROGRAM_ID,
                     systemProgram: SystemProgram.programId,
                 },
                 instructions: preInstructions,
-                signers,
+                signers: signerInfo.signers,
             }
         );
+
+        // no need to update auction config
     };
 
     // warn: do not rely on client state for this function. caller can close any auction's state at any time.
     closeAuctionTokenAccount = async (
         auction: PublicKey,
         bump: number,
-        sequence: number,
+        sequence: BN,
         auctionTokenAccount: PublicKey,
         payer: PublicKey | Keypair
     ) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+        this.validateAuctionFactory();
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
-
-        if (this.isVerbose) {
-            console.log(
-                `closing auction ATA [${auctionTokenAccount.toString()}]. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
+        const signerInfo = getSignersFromPayer(payer);
 
         await this.program.rpc.closeAuctionTokenAccount(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             bump,
-            new anchor.BN(sequence),
+            sequence,
             {
                 accounts: {
-                    payer: _payer,
+                    payer: signerInfo.payer,
                     treasury: this.auctionFactory.treasury,
                     auctionFactory: this.auctionFactory.config.address,
                     auction,
@@ -770,7 +674,7 @@ export class AuctionFactoryClient extends AccountUtils {
                     systemProgram: SystemProgram.programId,
                     auctionTokenAccount,
                 },
-                signers,
+                signers: signerInfo.signers,
             }
         );
     };
@@ -780,82 +684,51 @@ export class AuctionFactoryClient extends AccountUtils {
     // ============================================================================
 
     initializeConfig = async (
-        config: PublicKey,
+        address: PublicKey,
         bump: number,
         seed: string,
         maxSupply: number,
         payer: PublicKey | Keypair
     ) => {
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
+        const signerInfo = getSignersFromPayer(payer);
 
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
+        await this.program.rpc.initializeConfig(bump, seed, maxSupply, {
+            accounts: {
+                config: address,
+                payer: signerInfo.payer,
+                systemProgram: SystemProgram.programId,
+            },
+            signers: signerInfo.signers,
+        });
 
-        if (this.isVerbose) {
-            console.log(
-                `calling initialize config with address ${config.toString()}. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
-
-        await this.program.rpc.initializeConfig(
+        // update auction state var
+        this.config = {
             bump,
+            address,
             seed,
-            maxSupply,
-            {
-                accounts: {
-                    config,
-                    payer: _payer,
-                    systemProgram: SystemProgram.programId,
-                },
-                signers,
-            }
-        );
+        };
 
         this.maxSupply = maxSupply;
     };
 
     addConfig = async (data: string[], payer: PublicKey | Keypair) => {
-        // if (!this.isAuctionFactoryValid() && !this.isConfigValid()) {
-        //     throw new Error(
-        //         "Initialize auction factory and config accounts before adding config"
-        //     );
-        // }
-
-        const payerIsKeypair = isKp(payer);
-        const _payer = payerIsKeypair ? (<Keypair>payer).publicKey : payer;
-
-        // assert signers is non-empty array?
-        const signers = [];
-        if (payerIsKeypair) signers.push(<Keypair>payer);
-
-        if (this.isVerbose) {
-            console.log(
-                `adding ${
-                    data.length
-                } items to config with address ${this.config.address.toString()}. payer: ${_payer.toString()} and ${
-                    signers.length
-                } signers`
-            );
-        }
+        this.validateConfig();
+        const signerInfo = getSignersFromPayer(payer);
 
         await this.program.rpc.addUrisToConfig(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             this.config.bump,
-            this.config.seed!,
+            this.config.seed,
             data,
             {
                 accounts: {
                     auctionFactory: this.auctionFactory.config.address,
                     config: this.config.address,
-                    payer: _payer,
+                    payer: signerInfo.payer,
                     systemProgram: SystemProgram.programId,
                 },
-                signers,
+                signers: signerInfo.signers,
             }
         );
     };
@@ -874,7 +747,7 @@ export class AuctionFactoryClient extends AccountUtils {
         return (
             this.auctionFactory &&
             lodash.isNumber(this.auctionFactory.config.bump) &&
-            !isBlank(this.auctionFactory.config.seed!)
+            !isBlank(this.auctionFactory.config.seed)
         );
     };
 
@@ -888,21 +761,7 @@ export class AuctionFactoryClient extends AccountUtils {
         return (
             this.config &&
             lodash.isNumber(this.config.bump) &&
-            !isBlank(this.config.seed!)
-        );
-    };
-
-    validateAuction = (): void => {
-        if (!this.isAuctionValid()) {
-            throw new Error("Must initialize auction");
-        }
-    };
-
-    isAuctionValid = (): boolean => {
-        return (
-            this.auction &&
-            lodash.isNumber(this.auction.config.bump) &&
-            lodash.isNumber(this.auction.sequence)
+            !isBlank(this.config.seed)
         );
     };
 }

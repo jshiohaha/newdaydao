@@ -13,7 +13,7 @@ pub struct UpdateMetadata<'info> {
     pub token_metadata_program: AccountInfo<'info>,
 }
 
-pub fn update_metadata_after_primary_sale<'a, 'b, 'c, 'info>(
+pub fn handle<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, UpdateMetadata<'info>>,
 ) -> ProgramResult {
     invoke_signed(

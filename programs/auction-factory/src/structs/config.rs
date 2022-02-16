@@ -62,6 +62,8 @@ impl Config {
         let update_idx: usize = self.update_idx as usize;
 
         let adj_sequence = sequence
+            .checked_sub(1) // auction/auction factory is not 0 idx based
+            .ok_or(ErrorCode::NumericalUnderflowError)?
             .checked_rem(max_supply)
             .ok_or(ErrorCode::CheckedRemError)?;
 
@@ -80,7 +82,7 @@ impl Config {
         let item = get_item(
             &self.buffer,
             max_supply,
-            sequence,
+            adj_sequence,
             update_idx,
             self.is_updated,
         )?;

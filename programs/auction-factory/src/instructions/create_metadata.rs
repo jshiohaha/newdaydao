@@ -24,7 +24,7 @@ pub struct CreateMetadata<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn create_metadata<'a, 'b, 'c, 'info>(
+pub fn handle<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, CreateMetadata<'info>>,
     metadata_info: MetadataInfo,
 ) -> ProgramResult {

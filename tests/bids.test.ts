@@ -1,4 +1,5 @@
 import * as lodash from "lodash";
+import { BN } from '@project-serum/anchor';
 import { PublicKey, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import * as assert from "assert";
 
@@ -14,6 +15,7 @@ import {
 } from "./shared/helpers";
 import { Network } from "./shared/types";
 import { expectThrowsAsync, getAnchorEnv, sleep } from "./shared/utils";
+import { BN_ONE } from "../app/node_modules/@auction-factory/sdk/src";
 
 if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
     // ============================================================================
@@ -101,35 +103,23 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
         });
 
         it("initialize first auction & supply resource for auction", async () => {
-            let auctionFactoryAccount = await client.fetchAuctionFactory(
-                client.auctionFactory.config.address
-            );
-
-            const seq = auctionFactoryAccount.sequence.toNumber();
+            let auctionFactoryAccount = await client.getAuctionFactory();
+            const seq = auctionFactoryAccount.sequence.add(BN_ONE);
             await client.initAuction(seq);
 
             // generate accounts for mint
             const mint = Keypair.generate();
-            const [tokenAccount, bump] =
-                await client.getAssociatedTokenAccountAddress(
-                    client.auction.config.address,
-                    mint.publicKey
-                );
-            await client.mintNftToAuction(mint, {
-                address: tokenAccount,
-                bump,
-            });
+            await client.mintNftToAuction(seq, mint);
 
+            const auction = await client.getAuctionAddressWithSequence(seq);
             await logSupplyResourceData(
-                auctionFactoryAccount.sequence.toNumber(),
-                client.auction.config.address,
+                auctionFactoryAccount.sequence,
+                auction,
                 client.auctionFactory.config.address,
                 mint.publicKey
             );
 
-            const auctionAccount = await client.fetchAuction(
-                client.auction.config.address
-            );
+            const auctionAccount = await client.fetchAuction(auction);
             assert.ok(auctionAccount.resource !== null);
             assert.ok(
                 auctionAccount.resource.toString() === mint.publicKey.toString()
@@ -138,7 +128,7 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
             // verify auction token account actually has a token in it
             const auctionTokenAmount =
                 await client.getAuctionTokenAccountBalance(
-                    client.auction.config.address,
+                    auction,
                     mint.publicKey
                 );
             assert.ok(auctionTokenAmount === 1);
@@ -146,21 +136,20 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
             const configAccount = await client.fetchConfig(
                 client.config.address
             );
-            console.log("config buffer: ", configAccount.buffer as string[]);
         });
 
         it("submit a bunch of bids", async () => {
             const maxBids = 11;
 
-            let auctionFactoryAccount = await client.fetchAuctionFactory(
-                client.auctionFactory.config.address
-            );
+            const auctionFactoryAccount = await client.getAuctionFactory();
+            const seq = auctionFactoryAccount.sequence.add(BN_ONE);
             const minBidPercentageIncrease =
                 auctionFactoryAccount.data.minBidPercentageIncrease.toNumber();
-            console.log("minBidPercentageIncrease: ", minBidPercentageIncrease);
+
+            const auction = await client.getCurrentAuctionAddress();
 
             let localBids = [];
-            let bidAmountInLamports = 100;
+            let bidAmountInLamports = new BN(100);
             for (let i = 0; i < maxBids; i++) {
                 const bidder = await client.nodeWallet.createFundedWallet(
                     0.1 * LAMPORTS_PER_SOL
@@ -169,39 +158,29 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
                     `${bidder.publicKey.toString()} is submitting bid #${i + 1}`
                 );
 
-                let auctionAccount = await client.fetchAuction(
-                    client.auction.config.address
-                );
+                let auctionAccount = await client.fetchAuction(auction);
                 const previousBid = auctionAccount.amount.toNumber();
-                const auctionBalanceBefore = await client.getBalance(
-                    client.auction.config.address
-                );
+                const auctionBalanceBefore = await client.getBalance(auction);
 
-                await client.placeBidOnAuction(bidAmountInLamports, bidder);
-                auctionAccount = await client.fetchAuction(
-                    client.auction.config.address
-                );
+                await client.placeBidOnAuction(seq, bidAmountInLamports, bidder);
+                auctionAccount = await client.fetchAuction(auction);
+
                 const updatedBid = auctionAccount.amount.toNumber();
-                const auctionBalanceAfter = await client.getBalance(
-                    client.auction.config.address
-                );
+                const auctionBalanceAfter = await client.getBalance(auction);
                 assert.ok(
                     auctionBalanceAfter - auctionBalanceBefore ===
                         updatedBid - previousBid
                 );
 
-                localBids.push(Math.floor(bidAmountInLamports));
+                localBids.push(Math.floor(bidAmountInLamports.toNumber()));
                 const minBidPercentageIncrease =
                     auctionFactoryAccount.data.minBidPercentageIncrease.toNumber();
-                bidAmountInLamports *= 1 + minBidPercentageIncrease / 100;
+                bidAmountInLamports = bidAmountInLamports.mul(new BN(1 + minBidPercentageIncrease / 100));
 
                 await sleep(500);
             }
 
-            const auctionAccount = await client.fetchAuction(
-                client.auction.config.address
-            );
-
+            const auctionAccount = await client.fetchAuction(auction);
             const bids = auctionAccount.bids as any[];
             logBids(bids.reverse());
 
@@ -227,15 +206,13 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
             // 1. spin until auction is over
             await waitForAuctionToEnd(
                 client,
-                client.auction.config.address,
                 3,
                 true
             );
 
+            const auction = await client.getCurrentAuctionAddress();
             // 2. settle auction
-            let auctionAccount = await client.fetchAuction(
-                client.auction.config.address
-            );
+            let auctionAccount = await client.fetchAuction(auction);
             const mint = new PublicKey(auctionAccount.resource);
             const [bidderTokenAccount, bidderTokenAccountBump] =
                 await client.getAssociatedTokenAccountAddress(
@@ -244,6 +221,7 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
                 );
 
             await client.settleCurrentAuction(
+                auctionAccount.sequence,
                 {
                     address: bidderTokenAccount,
                     bump: bidderTokenAccountBump,
@@ -251,9 +229,7 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
                 mint
             );
 
-            auctionAccount = await client.fetchAuction(
-                client.auction.config.address
-            );
+            auctionAccount = await client.fetchAuction(auction);
             assert.ok(auctionAccount.settled === true);
             assert.ok(
                 auctionAccount.finalizedEndTime !== undefined &&
@@ -261,7 +237,7 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
             );
             const auctionTokenAmount =
                 await client.getAuctionTokenAccountBalance(
-                    client.auction.config.address,
+                    auction,
                     mint
                 );
             assert.ok(auctionTokenAmount === 0);

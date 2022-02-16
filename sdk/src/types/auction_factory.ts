@@ -37,7 +37,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -80,7 +80,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -128,7 +128,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -214,7 +214,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -226,7 +226,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "configUuid",
+          "name": "configSeed",
           "type": "string"
         },
         {
@@ -270,7 +270,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -356,7 +356,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -414,7 +414,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -424,40 +424,6 @@ export type AuctionFactory = {
         {
           "name": "sequence",
           "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "initializeConfig",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "bump",
-          "type": "u8"
-        },
-        {
-          "name": "uuid",
-          "type": "string"
-        },
-        {
-          "name": "maxSupply",
-          "type": "u32"
         }
       ]
     },
@@ -496,7 +462,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -504,62 +470,13 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "configUuid",
+          "name": "configSeed",
           "type": "string"
         },
         {
           "name": "data",
           "type": {
             "defined": "AuctionFactoryData"
-          }
-        }
-      ]
-    },
-    {
-      "name": "addUrisToConfig",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "auctionFactory",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "auctionFactoryBump",
-          "type": "u8"
-        },
-        {
-          "name": "uuid",
-          "type": "string"
-        },
-        {
-          "name": "configBump",
-          "type": "u8"
-        },
-        {
-          "name": "configUuid",
-          "type": "string"
-        },
-        {
-          "name": "configData",
-          "type": {
-            "vec": "string"
           }
         }
       ]
@@ -584,7 +501,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         }
       ]
@@ -609,7 +526,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -645,7 +562,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         }
       ]
@@ -675,7 +592,7 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         }
       ]
@@ -705,8 +622,91 @@ export type AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "initializeConfig",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "bump",
+          "type": "u8"
+        },
+        {
+          "name": "seed",
+          "type": "string"
+        },
+        {
+          "name": "maxSupply",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "addUrisToConfig",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "auctionFactory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "auctionFactoryBump",
+          "type": "u8"
+        },
+        {
+          "name": "seed",
+          "type": "string"
+        },
+        {
+          "name": "configBump",
+          "type": "u8"
+        },
+        {
+          "name": "configSeed",
+          "type": "string"
+        },
+        {
+          "name": "configData",
+          "type": {
+            "vec": "string"
+          }
         }
       ]
     }
@@ -784,7 +784,7 @@ export type AuctionFactory = {
             "type": "u8"
           },
           {
-            "name": "uuid",
+            "name": "seed",
             "type": "string"
           },
           {
@@ -834,7 +834,7 @@ export type AuctionFactory = {
             "type": "u8"
           },
           {
-            "name": "uuid",
+            "name": "seed",
             "type": "string"
           },
           {
@@ -1108,7 +1108,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -1151,7 +1151,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -1199,7 +1199,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -1285,7 +1285,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -1297,7 +1297,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "configUuid",
+          "name": "configSeed",
           "type": "string"
         },
         {
@@ -1341,7 +1341,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -1427,7 +1427,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -1485,7 +1485,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -1495,40 +1495,6 @@ export const IDL: AuctionFactory = {
         {
           "name": "sequence",
           "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "initializeConfig",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "bump",
-          "type": "u8"
-        },
-        {
-          "name": "uuid",
-          "type": "string"
-        },
-        {
-          "name": "maxSupply",
-          "type": "u32"
         }
       ]
     },
@@ -1567,7 +1533,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -1575,62 +1541,13 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "configUuid",
+          "name": "configSeed",
           "type": "string"
         },
         {
           "name": "data",
           "type": {
             "defined": "AuctionFactoryData"
-          }
-        }
-      ]
-    },
-    {
-      "name": "addUrisToConfig",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "auctionFactory",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "auctionFactoryBump",
-          "type": "u8"
-        },
-        {
-          "name": "uuid",
-          "type": "string"
-        },
-        {
-          "name": "configBump",
-          "type": "u8"
-        },
-        {
-          "name": "configUuid",
-          "type": "string"
-        },
-        {
-          "name": "configData",
-          "type": {
-            "vec": "string"
           }
         }
       ]
@@ -1655,7 +1572,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         }
       ]
@@ -1680,7 +1597,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         },
         {
@@ -1716,7 +1633,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         }
       ]
@@ -1746,7 +1663,7 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
         }
       ]
@@ -1776,8 +1693,91 @@ export const IDL: AuctionFactory = {
           "type": "u8"
         },
         {
-          "name": "uuid",
+          "name": "seed",
           "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "initializeConfig",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "bump",
+          "type": "u8"
+        },
+        {
+          "name": "seed",
+          "type": "string"
+        },
+        {
+          "name": "maxSupply",
+          "type": "u32"
+        }
+      ]
+    },
+    {
+      "name": "addUrisToConfig",
+      "accounts": [
+        {
+          "name": "payer",
+          "isMut": false,
+          "isSigner": true
+        },
+        {
+          "name": "config",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "auctionFactory",
+          "isMut": false,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "auctionFactoryBump",
+          "type": "u8"
+        },
+        {
+          "name": "seed",
+          "type": "string"
+        },
+        {
+          "name": "configBump",
+          "type": "u8"
+        },
+        {
+          "name": "configSeed",
+          "type": "string"
+        },
+        {
+          "name": "configData",
+          "type": {
+            "vec": "string"
+          }
         }
       ]
     }
@@ -1855,7 +1855,7 @@ export const IDL: AuctionFactory = {
             "type": "u8"
           },
           {
-            "name": "uuid",
+            "name": "seed",
             "type": "string"
           },
           {
@@ -1905,7 +1905,7 @@ export const IDL: AuctionFactory = {
             "type": "u8"
           },
           {
-            "name": "uuid",
+            "name": "seed",
             "type": "string"
           },
           {

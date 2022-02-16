@@ -14,7 +14,7 @@ pub struct SignMetadata<'info> {
     pub token_metadata_program: AccountInfo<'info>,
 }
 
-pub fn sign_token_metadata<'a, 'b, 'c, 'info>(
+pub fn handle<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, SignMetadata<'info>>,
 ) -> ProgramResult {
     invoke_signed(

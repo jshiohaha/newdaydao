@@ -50,7 +50,7 @@ pub fn transfer_bid_amount(ctx: &Context<PlaceBid>, amount: u64) -> ProgramResul
     Ok(())
 }
 
-pub fn place(amount: u64, bidder: Pubkey, auction: &mut Auction) -> ProgramResult {
+pub fn handle(amount: u64, bidder: Pubkey, auction: &mut Auction) -> ProgramResult {
     auction.update_auction_with_bid(amount, bidder)?;
 
     Ok(())

@@ -1,8 +1,9 @@
 import { Keypair } from "@solana/web3.js";
+import { BN } from '@project-serum/anchor';
 import * as assert from "assert";
 
 import { AuctionFactoryTestClient } from "./shared/driver.test";
-
+import { BN_ONE } from "../app/node_modules/@auction-factory/sdk/src";
 import { RUN_ALL_TESTS } from "./shared/constants";
 import {
     logConfigData,
@@ -66,39 +67,14 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
                 minReservePrice
             );
 
-            let auctionFactoryAccount = await client.fetchAuctionFactory(
-                client.auctionFactory.config.address
-            );
+            let auctionFactoryAccount = await client.getAuctionFactory();
+
             assert.ok(!auctionFactoryAccount.isActive);
 
             await client.toggleAuctionFactoryStatus();
 
-            auctionFactoryAccount = await client.fetchAuctionFactory(
-                client.auctionFactory.config.address
-            );
+            auctionFactoryAccount = await client.getAuctionFactory();
             assert.ok(auctionFactoryAccount.isActive);
-        });
-
-        it("add random elements to config", async () => {
-            const numConfig = generateRandomNumber(1, MAX_CONFIG_VEC_SIZE);
-            console.log(`=== ADDING ${numConfig} CONFIG ===`);
-
-            const new_uris_for_empty_config = generateConfigs(numConfig);
-            await client.addDataToConfig(new_uris_for_empty_config);
-
-            const configAccount = await client.fetchConfig(
-                client.config.address
-            );
-            assert.ok(
-                configAccount.updateIdx ===
-                    new_uris_for_empty_config.length % MAX_CONFIG_VEC_SIZE
-            );
-            assert.ok(
-                (configAccount.buffer as string[]).length ===
-                    new_uris_for_empty_config.length
-            );
-
-            logConfigData(configAccount, client.config.address);
         });
 
         it("init, spin, settle n auctions", async () => {
@@ -106,24 +82,20 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
             const numAuctions = generateRandomNumber(
                 1,
                 MAX_CONFIG_VEC_SIZE * 2
-            );
+            ); // MAX_CONFIG_VEC_SIZE * 5;
+            const configHashes = new Set();
 
             console.log(`=== RUNNING ${numAuctions} AUCTIONS ===`);
             for (let i = 0; i < numAuctions; i++) {
-                console.log(`=== STARTING AUCTION CYCLE ${i} ===`);
-                const configAccount = await client.fetchConfig(
+                console.log(`=== STARTING AUCTION CYCLE ${i+1} ===`);
+                let configAccount = await client.fetchConfig(
                     client.config.address
                 );
 
                 // note: comment this out, and we will get insufficient config error.
-                if (
-                    i > 0 &&
-                    i % MAX_CONFIG_VEC_SIZE === configAccount.updateIdx
-                ) {
+                if (i === 0 || i % MAX_CONFIG_VEC_SIZE === configAccount.updateIdx) {
                     const auctionFactoryAccount =
-                        await client.fetchAuctionFactory(
-                            client.auctionFactory.config.address
-                        );
+                        await client.getAuctionFactory();
 
                     const adjSequence =
                         auctionFactoryAccount.sequence.toNumber() %
@@ -131,7 +103,7 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
 
                     const numAdditionalConfig = generateRandomNumber(
                         1,
-                        MAX_CONFIG_VEC_SIZE
+                        MAX_CONFIG_VEC_SIZE / 2
                     );
                     console.log(
                         `=== ADDING ${numAdditionalConfig} MORE CONFIG AT ADJ SEQ ${adjSequence} ===`
@@ -151,45 +123,30 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
                     );
                 }
 
-                const auctionFactoryAccount = await client.fetchAuctionFactory(
-                    client.auctionFactory.config.address
-                );
+                const auctionFactoryAccount = await client.getAuctionFactory();
 
-                const seq = auctionFactoryAccount.sequence.toNumber();
+                const seq = auctionFactoryAccount.sequence.add(BN_ONE);
                 await client.initAuction(seq);
 
                 // generate accounts for mint
                 const mint = Keypair.generate();
-                const [tokenAccount, bump] =
-                    await client.getAssociatedTokenAccountAddress(
-                        client.auction.config.address,
-                        mint.publicKey
-                    );
-                await client.mintNftToAuction(mint, {
-                    address: tokenAccount,
-                    bump,
-                });
+                await client.mintNftToAuction(seq, mint);
 
-                let auctionAccount = await client.fetchAuction(
-                    client.auction.config.address
-                );
+                const auction = await client.getCurrentAuctionAddress();
+                let auctionAccount = await client.fetchAuction(auction);
+
                 assert.ok(auctionAccount.resource !== null);
                 // verify auction token account actually has a token in it
                 let auctionTokenAmount =
                     await client.getAuctionTokenAccountBalance(
-                        client.auction.config.address,
+                        auction,
                         mint.publicKey
                     );
                 assert.ok(auctionTokenAmount === 1);
 
                 // 2. spin until auction is over. removing this will cause tests to fail with error
                 // `Auction is live and cannot be settled.`
-                await waitForAuctionToEnd(
-                    client,
-                    client.auction.config.address,
-                    1,
-                    true
-                );
+                await waitForAuctionToEnd(client, 1, true);
 
                 // 3. settle auction
                 const [bidderTokenAccount, bidderTokenAccountBump] =
@@ -199,6 +156,7 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
                     );
 
                 await client.settleCurrentAuction(
+                    seq,
                     {
                         address: bidderTokenAccount,
                         bump: bidderTokenAccountBump,
@@ -206,9 +164,7 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
                     mint.publicKey
                 );
 
-                auctionAccount = await client.fetchAuction(
-                    client.auction.config.address
-                );
+                auctionAccount = await client.fetchAuction(auction);
                 assert.ok(auctionAccount.settled === true);
                 assert.ok(
                     auctionAccount.finalizedEndTime !== undefined &&
@@ -216,7 +172,7 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
                 );
 
                 auctionTokenAmount = await client.getAuctionTokenAccountBalance(
-                    client.auction.config.address,
+                    auction,
                     mint.publicKey
                 );
                 assert.ok(auctionTokenAmount === 0);
@@ -227,6 +183,7 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
                 client.auctionFactory.config.address
             );
             assert.ok(auctionFactoryAccount.sequence.toNumber() == numAuctions);
+            console.log('total unique configs: ', Array.from(configHashes).length);
         });
     });
 }

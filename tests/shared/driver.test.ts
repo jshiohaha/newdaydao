@@ -1,4 +1,5 @@
 import * as anchor from "@project-serum/anchor";
+import { BN } from "@project-serum/anchor";
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 
 import {
@@ -43,7 +44,7 @@ export class AuctionFactoryTestClient extends AuctionFactoryClient {
         return this.config;
     };
 
-    initConfig = async (masSupply: number) => {
+    initConfig = async (maxSupply: number) => {
         const seed = generateSeed(CONFIG_SEED_LEN);
         const [configAddress, configBump] = await this.findConfigPda(seed);
 
@@ -55,7 +56,7 @@ export class AuctionFactoryTestClient extends AuctionFactoryClient {
             configAddress,
             configBump,
             seed,
-            masSupply,
+            maxSupply,
             this.auctionFactoryAuthority
         );
 
@@ -98,8 +99,6 @@ export class AuctionFactoryTestClient extends AuctionFactoryClient {
             treasury.publicKey,
             this.auctionFactoryAuthority
         );
-
-        // console.log('after init', this.auctionFactory.config.address.toString());
     };
 
     toggleAuctionFactoryStatus = async () => {
@@ -145,36 +144,34 @@ export class AuctionFactoryTestClient extends AuctionFactoryClient {
 
     // ===== AUCTION =====
 
-    initAuction = async (sequence: number) => {
-        const [auction, bump] = await this.findAuctionPda(
-            sequence,
-            this.auctionFactory.config.address
-        );
+    initAuction = async (sequence: BN) => {
+        const auctionPda = await this.fetchAuctionPdaData(sequence);
 
         const payer = await this.nodeWallet.createFundedWallet(
             0.1 * LAMPORTS_PER_SOL
         );
-        await this.createAuction(auction, bump, sequence, payer);
+        await this.createAuction(auctionPda.addr, auctionPda.bump, sequence, payer);
     };
 
-    mintNftToAuction = async (
-        mint: Keypair,
-        auctionTokenAccount: TokenAccount
-    ) => {
+    mintNftToAuction = async (sequence: BN, mint: Keypair) => {
         const payer = await this.nodeWallet.createFundedWallet(
             1 * LAMPORTS_PER_SOL
         );
 
-        await this.mintTokenToAuction(mint, auctionTokenAccount, payer);
-
-        await this.supplyResource(mint.publicKey, payer);
+        await this.mintTokenToAuction(sequence, mint, payer);
+        await this.supplyResource(sequence, mint.publicKey, payer);
     };
 
-    placeBidOnAuction = async (amount: number, bidder: Keypair) => {
-        await this.placeBid(amount, bidder);
+    placeBidOnAuction = async (
+        sequence: BN,
+        amount: BN,
+        bidder: Keypair
+    ) => {
+        await this.placeBid(sequence, amount, bidder);
     };
 
     settleCurrentAuction = async (
+        sequence: BN,
         bidderTokenAccount: TokenAccount,
         mint: PublicKey
     ) => {
@@ -182,13 +179,13 @@ export class AuctionFactoryTestClient extends AuctionFactoryClient {
             1 * LAMPORTS_PER_SOL
         );
 
-        await this.settleAuction(bidderTokenAccount, mint, payer);
+        await this.settleAuction(sequence, bidderTokenAccount, mint, payer);
     };
 
     closeAuctionATA = async (
         auction: PublicKey,
         bump: number,
-        sequence: number,
+        sequence: BN,
         auctionTokenAccount: PublicKey
     ) => {
         const payer = await this.nodeWallet.createFundedWallet(
@@ -199,6 +196,33 @@ export class AuctionFactoryTestClient extends AuctionFactoryClient {
             auction,
             bump,
             sequence,
+            auctionTokenAccount,
+            payer
+        );
+    };
+
+    closeCurrentAuctionATA = async () => {
+        let auctionFactoryAccount = await this.fetchAuctionFactory(
+            this.auctionFactory.config.address
+        );
+        const [addr, bump] = await this.findAuctionPda(
+            auctionFactoryAccount.sequence,
+            this.auctionFactory.config.address
+        );
+
+        const auction = await this.fetchAuction(addr);
+        const mint = new PublicKey(auction.resource);
+        const [auctionTokenAccount, _auctionTokenAccountBump] =
+            await this.getAssociatedTokenAccountAddress(addr, mint);
+
+        const payer = await this.nodeWallet.createFundedWallet(
+            1 * LAMPORTS_PER_SOL
+        );
+
+        await this.closeAuctionTokenAccount(
+            addr,
+            bump,
+            auctionFactoryAccount.sequence,
             auctionTokenAccount,
             payer
         );
@@ -227,4 +251,22 @@ export class AuctionFactoryTestClient extends AuctionFactoryClient {
 
         return +auctionTokenAmount["value"]["amount"];
     };
+
+    getCurrentAuctionAddress = async () => {
+        const auctionFactoryAccount = await this.fetchAuctionFactory(
+            this.auctionFactory.config.address
+        );
+
+        const [addr, _bump] = await this.findAuctionPda(
+            auctionFactoryAccount.sequence,
+            this.auctionFactory.config.address
+        );
+        return addr;
+    };
+
+    getAuctionFactory = async () => {
+        return await this.fetchAuctionFactory(
+            this.auctionFactory.config.address
+        );
+    }
 }

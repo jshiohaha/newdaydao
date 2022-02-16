@@ -18,6 +18,9 @@ import {
     waitForAuctionToEnd,
 } from "./shared/helpers";
 import { expectThrowsAsync } from "./shared/utils";
+import { BN_ZERO } from "../app/node_modules/@auction-factory/sdk/src";
+import { BN_ONE } from "../app/node_modules/@auction-factory/sdk/src";
+import { BN } from "@project-serum/anchor";
 
 // due to complex auction lifecylce, prefer consecutive tests over fully independent tests.
 // the former could be more difficult to update/debut but the latter will take much longer.
@@ -62,16 +65,12 @@ describe("execute basic auction factory functions", async () => {
             minReservePrice
         );
 
-        let auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        let auctionFactoryAccount = await client.getAuctionFactory();
         assert.ok(!auctionFactoryAccount.isActive);
 
         await client.toggleAuctionFactoryStatus();
 
-        auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        auctionFactoryAccount = await client.getAuctionFactory();
         assert.ok(auctionFactoryAccount.isActive);
     });
 
@@ -80,9 +79,7 @@ describe("execute basic auction factory functions", async () => {
             0.1 * LAMPORTS_PER_SOL
         );
 
-        let auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        let auctionFactoryAccount = await client.getAuctionFactory();
         const reservePriceBeforeUpdate =
             auctionFactoryAccount.data.minReservePrice.toNumber();
 
@@ -96,10 +93,7 @@ describe("execute basic auction factory functions", async () => {
                 fakeAuthority
             );
         });
-
-        auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        auctionFactoryAccount = await client.getAuctionFactory();
         const reservePriceAfterUpdate =
             auctionFactoryAccount.data.minReservePrice.toNumber();
 
@@ -108,10 +102,7 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("modify auction factory data", async () => {
-        let auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
-
+        let auctionFactoryAccount = await client.getAuctionFactory();
         const updatedMinReservePrice = 1;
         const updatedMinBidPercentageIncrease = 2;
         await client.modifyAuctionFactory(
@@ -121,10 +112,7 @@ describe("execute basic auction factory functions", async () => {
             updatedMinReservePrice
         );
 
-        auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
-
+        auctionFactoryAccount = await client.getAuctionFactory();
         assert.ok(
             auctionFactoryAccount.data.minReservePrice.toNumber() ===
                 updatedMinReservePrice
@@ -140,16 +128,11 @@ describe("execute basic auction factory functions", async () => {
         const updatedTreasury = await client.nodeWallet.createFundedWallet(
             0.1 * LAMPORTS_PER_SOL
         );
-
-        let auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        let auctionFactoryAccount = await client.getAuctionFactory();
 
         await client.changeTreasury(updatedTreasury.publicKey);
 
-        auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        auctionFactoryAccount = await client.getAuctionFactory();
 
         assert.ok(
             auctionFactoryAccount.treasury.toString() ===
@@ -161,22 +144,13 @@ describe("execute basic auction factory functions", async () => {
         const amountToTransfer = 0.3 * LAMPORTS_PER_SOL;
         await client.addFundsToAuctionFactory(amountToTransfer);
 
-        const afAccountBalanceBefore = await client.getBalance(
-            client.auctionFactory.config.address
-        );
-        const treasuryAccountBalanceBefore = await client.getBalance(
-            client.auctionFactory.treasury
-        );
+        const afAccountBalanceBefore = await client.getAuctionFactoryBalance();
+        const treasuryAccountBalanceBefore = await client.getTreasuryBalance();
 
         await client.dumpLamportsToTreasury();
 
-        const afAccountBalanceAfter = await client.getBalance(
-            client.auctionFactory.config.address
-        );
-        const treasuryAccountBalanceAfter = await client.getBalance(
-            client.auctionFactory.treasury
-        );
-
+        const afAccountBalanceAfter = await client.getAuctionFactoryBalance();
+        const treasuryAccountBalanceAfter = await client.getTreasuryBalance();
         assert.ok(
             afAccountBalanceBefore - afAccountBalanceAfter === amountToTransfer
         );
@@ -201,7 +175,6 @@ describe("execute basic auction factory functions", async () => {
         const new_uris_for_empty_config = generateConfigs(
             Math.round(MAX_CONFIG_VEC_SIZE / 2)
         );
-        console.log("new_uris_for_empty_config: ", new_uris_for_empty_config);
 
         await client.addDataToConfig(new_uris_for_empty_config);
 
@@ -214,35 +187,27 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("initialize first auction & supply resource for auction", async () => {
-        let auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        let auctionFactoryAccount = await client.getAuctionFactory();
+        let seq = auctionFactoryAccount.sequence;
 
-        const seq = auctionFactoryAccount.sequence.toNumber();
+        assert.ok(seq.eq(BN_ZERO));
+        seq = seq.add(BN_ONE);
+
         await client.initAuction(seq);
 
         // generate accounts for mint
         const mint = Keypair.generate();
-        const [tokenAccount, bump] =
-            await client.getAssociatedTokenAccountAddress(
-                client.auction.config.address,
-                mint.publicKey
-            );
-        await client.mintNftToAuction(mint, {
-            address: tokenAccount,
-            bump,
-        });
+        await client.mintNftToAuction(seq, mint);
 
+        const auctionAddr = await client.getAuctionAddressWithSequence(seq);
         await logSupplyResourceData(
-            auctionFactoryAccount.sequence.toNumber(),
-            client.auction.config.address,
+            auctionFactoryAccount.sequence,
+            auctionAddr,
             client.auctionFactory.config.address,
             mint.publicKey
         );
 
-        const auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        const auctionAccount = await client.fetchAuction(auctionAddr);
         assert.ok(auctionAccount.resource !== null);
         assert.ok(
             auctionAccount.resource.toString() === mint.publicKey.toString()
@@ -250,64 +215,45 @@ describe("execute basic auction factory functions", async () => {
 
         // verify auction token account actually has a token in it
         const auctionTokenAmount = await client.getAuctionTokenAccountBalance(
-            client.auction.config.address,
+            auctionAddr,
             mint.publicKey
         );
         assert.ok(auctionTokenAmount === 1);
-
-        const configAccount = await client.fetchConfig(client.config.address);
-        console.log("config buffer: ", configAccount.buffer as string[]);
     });
 
     it("attempt to initialize first auction again, and fail 😈", async () => {
-        let auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        let auctionFactoryAccount = await client.getAuctionFactory();
         assert.ok(auctionFactoryAccount.sequence.toNumber() === 1);
 
-        const initialSequence = 0;
-
         expectThrowsAsync(async () => {
-            await client.initAuction(initialSequence);
+            await client.initAuction(BN_ONE);
         });
 
-        auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        auctionFactoryAccount = await client.getAuctionFactory();
         assert.ok(auctionFactoryAccount.sequence.toNumber() === 1);
     });
 
     it("attempt to supply resource for auction again, and fail 😈", async () => {
+        let auctionFactoryAccount = await client.getAuctionFactory();
+        const seq = auctionFactoryAccount.sequence;
+
         // generate accounts for mint
         const mint = Keypair.generate();
-        const [tokenAccount, bump] =
-            await client.getAssociatedTokenAccountAddress(
-                client.auction.config.address,
-                mint.publicKey
-            );
-
         expectThrowsAsync(async () => {
-            await client.mintNftToAuction(mint, {
-                address: tokenAccount,
-                bump,
-            });
+            await client.mintNftToAuction(seq, mint);
         }, "Auction resource can only be generated once.");
     });
 
     it("attempt to create a new auction during an active auction, and fail 😈", async () => {
-        let auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
-        const seq = auctionFactoryAccount.sequence.toNumber();
-        assert.ok(seq === 1);
+        let auctionFactoryAccount = await client.getAuctionFactory();
+        const seq = auctionFactoryAccount.sequence;
+        assert.ok(seq.eq(BN_ONE));
 
         expectThrowsAsync(async () => {
-            await client.initAuction(seq);
+            await client.initAuction(seq.add(BN_ONE));
         }, "Must settle any ongoing auction before creating a new auction.");
 
-        auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        auctionFactoryAccount = await client.getAuctionFactory();
         assert.ok(auctionFactoryAccount.sequence.toNumber() === 1);
     });
 
@@ -353,21 +299,14 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("spin until auction can be settled", async () => {
-        await waitForAuctionToEnd(
-            client,
-            client.auction.config.address,
-            3,
-            true
-        );
+        await waitForAuctionToEnd(client, 3, true);
     });
 
     it("settle auction with no bids", async () => {
-        const treasuryBalanceBefore = await client.getBalance(
-            client.auctionFactory.treasury
-        );
-        let auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        let auctionFactoryAccount = await client.getAuctionFactory();
+        const treasuryBalanceBefore = await client.getTreasuryBalance();
+        const auction = await client.getCurrentAuctionAddress();
+        let auctionAccount = await client.fetchAuction(auction);
         const mint = new PublicKey(auctionAccount.resource);
         const [bidderTokenAccount, bidderTokenAccountBump] =
             await client.getAssociatedTokenAccountAddress(
@@ -376,6 +315,7 @@ describe("execute basic auction factory functions", async () => {
             );
 
         await client.settleCurrentAuction(
+            auctionFactoryAccount.sequence,
             {
                 address: bidderTokenAccount,
                 bump: bidderTokenAccountBump,
@@ -383,9 +323,7 @@ describe("execute basic auction factory functions", async () => {
             mint
         );
 
-        auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        auctionAccount = await client.fetchAuction(auction);
         assert.ok(auctionAccount.settled === true);
         assert.ok(
             auctionAccount.finalizedEndTime !== undefined &&
@@ -393,22 +331,20 @@ describe("execute basic auction factory functions", async () => {
         );
 
         // verify treasury balance has not changed
-        const treasuryBalanceAfter = await client.getBalance(
-            client.auctionFactory.treasury
-        );
+        const treasuryBalanceAfter = await client.getTreasuryBalance();
         assert.ok(treasuryBalanceAfter === treasuryBalanceBefore);
 
         const auctionTokenAmount = await client.getAuctionTokenAccountBalance(
-            client.auction.config.address,
+            auction,
             mint
         );
         assert.ok(auctionTokenAmount === 0);
     });
 
     it("attempt to settle auction again, and fail", async () => {
-        let auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        let auctionFactoryAccount = await client.getAuctionFactory();
+        const auction = await client.getCurrentAuctionAddress();
+        let auctionAccount = await client.fetchAuction(auction);
         const mint = new PublicKey(auctionAccount.resource.toString());
         const [bidderTokenAccount, bidderTokenAccountBump] =
             await client.getAssociatedTokenAccountAddress(
@@ -420,6 +356,7 @@ describe("execute basic auction factory functions", async () => {
         // e.g. Error: failed to send transaction: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x7d3
         expectThrowsAsync(async () => {
             await client.settleCurrentAuction(
+                auctionFactoryAccount.sequence,
                 {
                     address: bidderTokenAccount,
                     bump: bidderTokenAccountBump,
@@ -430,41 +367,21 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("close first auction's token account after token removed", async () => {
-        const treasuryBalanceBefore = await client.getBalance(
-            client.auctionFactory.treasury
-        );
-        let auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        const treasuryBalanceBefore = await client.getTreasuryBalance();
+        const auction = await client.getCurrentAuctionAddress();
+        let auctionAccount = await client.fetchAuction(auction);
         const mint = new PublicKey(auctionAccount.resource);
-        const [auctionTokenAccount, _auctionTokenAccountBump] =
-            await client.getAssociatedTokenAccountAddress(
-                client.auction.config.address,
-                mint
-            );
 
-        await client.closeAuctionATA(
-            client.auction.config.address,
-            client.auction.config.bump,
-            client.auction.sequence,
-            auctionTokenAccount
-        );
+        await client.closeCurrentAuctionATA();
 
-        auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        auctionAccount = await client.fetchAuction(auction);
 
-        const treasuryBalanceAfter = await client.getBalance(
-            client.auctionFactory.treasury
-        );
+        const treasuryBalanceAfter = await client.getTreasuryBalance();
         assert.ok(treasuryBalanceAfter > treasuryBalanceBefore);
         let tokenAccountClosed = false;
         try {
             const auctionTokenAmount =
-                await client.getAuctionTokenAccountBalance(
-                    client.auction.config.address,
-                    mint
-                );
+                await client.getAuctionTokenAccountBalance(auction, mint);
             tokenAccountClosed = auctionTokenAmount === 0;
         } catch (e: any) {
             tokenAccountClosed = lodash.includes(
@@ -476,45 +393,33 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("first auction is over. create a new auction.", async () => {
-        let auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        let auctionFactoryAccount = await client.getAuctionFactory();
+        const seq = auctionFactoryAccount.sequence.add(BN_ONE);
 
-        const seq = auctionFactoryAccount.sequence.toNumber();
         await client.initAuction(seq);
-
-        // generate accounts for mint
+        const auction = await client.getAuctionAddressWithSequence(seq);
         const mint = Keypair.generate();
-        const [tokenAccount, bump] =
-            await client.getAssociatedTokenAccountAddress(
-                client.auction.config.address,
-                mint.publicKey
-            );
-        await client.mintNftToAuction(mint, {
-            address: tokenAccount,
-            bump,
-        });
+        await client.mintNftToAuction(seq, mint);
 
         await logSupplyResourceData(
-            auctionFactoryAccount.sequence.toNumber(),
-            client.auction.config.address,
+            seq,
+            auction,
             client.auctionFactory.config.address,
             mint.publicKey
         );
 
-        auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        auctionFactoryAccount = await client.getAuctionFactory();
         assert.ok(auctionFactoryAccount.sequence.toNumber() === 2);
 
-        const auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        const auctionAccount = await client.fetchAuction(auction);
         assert.ok(auctionAccount.resource !== null);
         assert.ok(
             auctionAccount.resource.toString() === mint.publicKey.toString()
         );
-        assert.ok(auctionAccount.sequence.toNumber() === 1);
+        assert.ok(
+            auctionAccount.sequence.toNumber() === seq.toNumber() &&
+                seq.toNumber() === 2
+        );
         assert.ok(auctionAccount.amount.toNumber() === 0);
         assert.ok(auctionAccount.resource !== null);
         assert.ok(
@@ -523,36 +428,32 @@ describe("execute basic auction factory functions", async () => {
 
         // verify auction token account actually has a token in it
         const auctionTokenAmount = await client.getAuctionTokenAccountBalance(
-            client.auction.config.address,
+            auction,
             mint.publicKey
         );
         assert.ok(auctionTokenAmount === 1);
     });
 
     it("place a valid bid and fail to place a follow up bid", async () => {
-        const auctionBalanceBefore = await client.getBalance(
-            client.auction.config.address
-        );
+        const auctionFactoryAccount = await client.getAuctionFactory();
+        const seq = auctionFactoryAccount.sequence;
+        const auction = await client.getAuctionAddressWithSequence(seq);
+        const auctionBalanceBefore = await client.getBalance(auction);
 
         const bidder = await client.nodeWallet.createFundedWallet(
             0.1 * LAMPORTS_PER_SOL
         );
-        const bidAmountInLamports = 100;
-        await client.placeBidOnAuction(bidAmountInLamports, bidder);
+        const bidAmountInLamports = new BN(100);
+        await client.placeBidOnAuction(seq, bidAmountInLamports, bidder);
 
-        const auctionBalanceAfter = await client.getBalance(
-            client.auction.config.address
-        );
+        const auctionBalanceAfter = await client.getBalance(auction);
         assert.ok(auctionBalanceAfter > auctionBalanceBefore);
 
-        let auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
-
+        let auctionAccount = await client.fetchAuction(auction);
         let bids = auctionAccount.bids as any[];
         assert.ok(bids.length === 1);
         const winning_bid = bids[0];
-        assert.ok(winning_bid.amount.toNumber() === bidAmountInLamports);
+        assert.ok(winning_bid.amount.eq(bidAmountInLamports));
         assert.ok(
             winning_bid.bidder.toString() === bidder.publicKey.toString()
         );
@@ -561,53 +462,42 @@ describe("execute basic auction factory functions", async () => {
         );
 
         // compute?
-        const newBidAmountInLamports = 105;
+        const newBidAmountInLamports = new BN(105);
         expectThrowsAsync(async () => {
-            await client.placeBidOnAuction(newBidAmountInLamports, bidder);
+            await client.placeBidOnAuction(seq, newBidAmountInLamports, bidder);
         });
 
-        auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        auctionAccount = await client.fetchAuction(auction);
         bids = auctionAccount.bids as any[];
         // bid wasn't added to list of bids
         assert.ok(bids.length === 1);
     });
 
     it("place another valid bid", async () => {
-        const auctionBalanceBefore = await client.getBalance(
-            client.auction.config.address
-        );
-
-        let auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
-        const leadingBidAmount = auctionAccount.amount.toNumber();
+        let auctionFactoryAccount = await client.getAuctionFactory();
+        const seq = auctionFactoryAccount.sequence;
+        const auction = await client.getAuctionAddressWithSequence(seq);
+        const auctionBalanceBefore = await client.getBalance(auction);
+        let auctionAccount = await client.fetchAuction(auction);
         const leadingBidder = auctionAccount.bidder.toString();
-
         const bidder = await client.nodeWallet.createFundedWallet(
             0.1 * LAMPORTS_PER_SOL
         );
-        const bidAmountInLamports = 105;
+        const bidAmountInLamports = new BN(105);
 
-        await client.placeBidOnAuction(bidAmountInLamports, bidder);
+        await client.placeBidOnAuction(seq, bidAmountInLamports, bidder);
 
-        const auctionBalanceAfter = await client.getBalance(
-            client.auction.config.address
-        );
+        const auctionBalanceAfter = await client.getBalance(auction);
         assert.ok(auctionBalanceAfter > auctionBalanceBefore);
         assert.ok(
-            auctionBalanceAfter - auctionBalanceBefore ===
-                bidAmountInLamports - leadingBidAmount
+            new BN(auctionBalanceAfter - auctionBalanceBefore).eq(bidAmountInLamports.sub(auctionAccount.amount))
         );
 
-        auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        auctionAccount = await client.fetchAuction(auction);
         const bids = auctionAccount.bids as any[];
         assert.ok(bids.length === 2);
         const winning_bid = bids[1];
-        assert.ok(winning_bid.amount.toNumber() === bidAmountInLamports);
+        assert.ok(winning_bid.amount.eq(bidAmountInLamports));
         assert.ok(
             winning_bid.bidder.toString() === bidder.publicKey.toString()
         );
@@ -620,10 +510,10 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("new bidder attempts to place another bid, but fails due to invalid bid amount [not big enough % diff] 😈", async () => {
-        let auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
-        const leadingBidAmount = auctionAccount.amount.toNumber();
+        let auctionFactoryAccount = await client.getAuctionFactory();
+        const seq = auctionFactoryAccount.sequence;
+        const auction = await client.getAuctionAddressWithSequence(seq);
+        let auctionAccount = await client.fetchAuction(auction);
         const leadingBidder = auctionAccount.bidder.toString();
 
         const bidder = await client.nodeWallet.createFundedWallet(
@@ -632,38 +522,28 @@ describe("execute basic auction factory functions", async () => {
 
         expectThrowsAsync(async () => {
             await client.placeBidOnAuction(
-                auctionAccount.amount.toNumber(), // same bid amount
+                seq,
+                auctionAccount.amount, // same bid amount
                 bidder
             );
         }, "Bid must be a non-negative, non-zero amount. Bid must also beat previous bid by some percent.");
 
-        auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        auctionAccount = await client.fetchAuction(auction);
 
         // verify bid wasn't added
         assert.ok((auctionAccount.bids as any[]).length === 2);
         assert.ok(auctionAccount.bidder.toString() === leadingBidder);
-        assert.ok(auctionAccount.amount.toNumber() === leadingBidAmount);
+        assert.ok(auctionAccount.amount.eq(auctionAccount.amount));
     });
 
     it("spin until auction can be settled", async () => {
-        await waitForAuctionToEnd(
-            client,
-            client.auction.config.address,
-            3,
-            true
-        );
+        await waitForAuctionToEnd(client, 3, true);
     });
 
     it("attempt to place a valid bid after auction is over", async () => {
-        let auctionFactoryAccount = await client.fetchAuctionFactory(
-            client.auctionFactory.config.address
-        );
+        let auctionFactoryAccount = await client.getAuctionFactory();
+        let auctionAccount = await client.fetchCurrentAuction();
 
-        let auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
         const winningAmountBeforeBidAttempt = auctionAccount.amount.toNumber();
         const winningBidderBeforeBidAttempt = auctionAccount.bidder.toString();
 
@@ -677,12 +557,14 @@ describe("execute basic auction factory functions", async () => {
                         100)
         );
         expectThrowsAsync(async () => {
-            await client.placeBidOnAuction(newValidBidAmount, bidder);
+            await client.placeBidOnAuction(
+                auctionFactoryAccount.sequence,
+                new BN(newValidBidAmount),
+                bidder
+            );
         }, "Auction is not in a state to perform such action.");
 
-        auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        auctionAccount = await client.fetchAuctionWithSequence(auctionFactoryAccount.sequence);
         assert.ok(
             winningAmountBeforeBidAttempt === auctionAccount.amount.toNumber()
         );
@@ -697,9 +579,7 @@ describe("execute basic auction factory functions", async () => {
             0.1 * LAMPORTS_PER_SOL
         );
 
-        let auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        let auctionAccount = await client.fetchCurrentAuction();
         const mint = new PublicKey(auctionAccount.resource);
         const [bidderTokenAccount, bidderTokenAccountBump] =
             await client.getAssociatedTokenAccountAddress(
@@ -707,7 +587,7 @@ describe("execute basic auction factory functions", async () => {
                 mint
             );
 
-        const wrongSequence = client.auction.sequence + 1;
+        const wrongSequence = new BN(100);
         const [auction, auctionBump] = await client.findAuctionPda(
             wrongSequence,
             client.auctionFactory.config.address
@@ -717,7 +597,6 @@ describe("execute basic auction factory functions", async () => {
         const [auctionTokenAccount, _auctionTokenAccountBump] =
             await client.getAssociatedTokenAccountAddress(auction, mint);
 
-        const seq = new anchor.BN(wrongSequence);
         // unable to get custom error here. ixn wrong or anchor macro?
         expectThrowsAsync(async () => {
             await client.program.rpc.settleAuction(
@@ -725,7 +604,7 @@ describe("execute basic auction factory functions", async () => {
                 client.auctionFactory.config.bump,
                 client.auctionFactory.config.seed,
                 auctionBump,
-                seq,
+                new anchor.BN(wrongSequence),
                 {
                     accounts: {
                         payer: settler.publicKey,
@@ -754,8 +633,9 @@ describe("execute basic auction factory functions", async () => {
             0.1 * LAMPORTS_PER_SOL
         );
 
-        let auctionAccount = await client.fetchAuction(
-            client.auction.config.address
+        const auctionAccount = await client.fetchCurrentAuction();
+        const auctionPda = await client.fetchAuctionPdaData(
+            auctionAccount.sequence
         );
         const mint = new PublicKey(auctionAccount.resource);
         const [bidderTokenAccount, bidderTokenAccountBump] =
@@ -766,17 +646,16 @@ describe("execute basic auction factory functions", async () => {
         const metadata = await client.getMetadata(mint);
         const [auctionTokenAccount, _auctionTokenAccountBump] =
             await client.getAssociatedTokenAccountAddress(
-                client.auction.config.address,
+                auctionPda.addr,
                 mint
             );
-
-        const seq = new anchor.BN(client.auction.sequence);
+        const seq = new anchor.BN(auctionAccount.sequence);
         expectThrowsAsync(async () => {
             await client.program.rpc.settleAuction(
                 bidderTokenAccountBump,
                 client.auctionFactory.config.bump,
                 client.auctionFactory.config.seed,
-                client.auction.config.bump,
+                auctionPda.bump,
                 seq,
                 {
                     accounts: {
@@ -784,7 +663,7 @@ describe("execute basic auction factory functions", async () => {
                         treasury: wrongTreasury.publicKey,
                         metadata,
                         auctionFactory: client.auctionFactory.config.address,
-                        auction: client.auction.config.address,
+                        auction: auctionPda.addr,
                         mint,
                         bidderTokenAccount: bidderTokenAccount,
                         auctionTokenAccount,
@@ -799,9 +678,7 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("attempt to settle auction with invalid bidder token account", async () => {
-        let auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        const auctionAccount = await client.fetchCurrentAuction();
         const mint = new PublicKey(auctionAccount.resource);
         const fakeAuctionWinner = Keypair.generate();
         const [bidderTokenAccount, bidderTokenAccountBump] =
@@ -812,6 +689,7 @@ describe("execute basic auction factory functions", async () => {
 
         expectThrowsAsync(async () => {
             await client.settleCurrentAuction(
+                auctionAccount.sequence,
                 {
                     address: bidderTokenAccount,
                     bump: bidderTokenAccountBump,
@@ -822,12 +700,9 @@ describe("execute basic auction factory functions", async () => {
     });
 
     it("settle auction", async () => {
-        const treasuryBalanceBefore = await client.getBalance(
-            client.auctionFactory.treasury
-        );
-        let auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        const treasuryBalanceBefore = await client.getTreasuryBalance();
+        const auction = await client.getCurrentAuctionAddress();
+        let auctionAccount = await client.fetchCurrentAuction();
         const mint = new PublicKey(auctionAccount.resource);
         const [bidderTokenAccount, bidderTokenAccountBump] =
             await client.getAssociatedTokenAccountAddress(
@@ -836,6 +711,7 @@ describe("execute basic auction factory functions", async () => {
             );
 
         await client.settleCurrentAuction(
+            auctionAccount.sequence,
             {
                 address: bidderTokenAccount,
                 bump: bidderTokenAccountBump,
@@ -843,9 +719,7 @@ describe("execute basic auction factory functions", async () => {
             mint
         );
 
-        auctionAccount = await client.fetchAuction(
-            client.auction.config.address
-        );
+        auctionAccount = await client.fetchCurrentAuction();
         assert.ok(auctionAccount.settled === true);
         assert.ok(
             auctionAccount.finalizedEndTime !== undefined &&
@@ -853,9 +727,7 @@ describe("execute basic auction factory functions", async () => {
         );
 
         // verify treasury balance has not changed
-        const treasuryBalanceAfter = await client.getBalance(
-            client.auctionFactory.treasury
-        );
+        const treasuryBalanceAfter = await client.getTreasuryBalance();
         assert.ok(
             treasuryBalanceAfter - treasuryBalanceBefore ===
                 auctionAccount.amount.toNumber()
@@ -868,7 +740,7 @@ describe("execute basic auction factory functions", async () => {
         assert.ok(+bidderTokenAmount["value"]["amount"] === 1);
 
         const auctionTokenAmount = await client.getAuctionTokenAccountBalance(
-            client.auction.config.address,
+            auction,
             mint
         );
         assert.ok(auctionTokenAmount === 0);

@@ -8,7 +8,7 @@ use {
     }
 };
 
-pub fn settle_empty_auction(
+pub fn handle_empty_auction(
     ctx: Context<SettleAuction>,
     bump: u8,
     sequence: u64
@@ -31,7 +31,7 @@ pub fn settle_empty_auction(
     Ok(())
 }
 
-pub fn settle(
+pub fn handle_auction(
     ctx: Context<SettleAuction>,
     bump: u8,
     sequence: u64

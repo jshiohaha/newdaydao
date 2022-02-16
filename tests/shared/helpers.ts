@@ -1,4 +1,5 @@
 import { PublicKey } from "@solana/web3.js";
+import { BN } from '@project-serum/anchor';
 import * as assert from "assert";
 import { DEFAULT_ALPHABET } from "./constants";
 import { sleep } from "./utils";
@@ -7,11 +8,16 @@ import { AccountUtils } from "../../sdk/src";
 
 export const waitForAuctionToEnd = async (
     client: any,
-    auction: PublicKey,
     sleepTimeoutInSeconds: number = 3,
-    verbose: boolean = false
+    verbose: boolean = false,
+    auction?: PublicKey,
 ) => {
-    let auctionAccount = await client.fetchAuction(auction);
+    let auctionAddress = auction;
+    if (!auctionAddress) {
+        auctionAddress = await client.getCurrentAuctionAddress();
+    }
+
+    let auctionAccount = await client.fetchAuction(auctionAddress);
     // loop until auction is over
     let currentTimestamp = new Date().getTime() / 1000;
     const auctionEndTime = auctionAccount.endTime.toNumber();
@@ -81,7 +87,7 @@ export const logConfigData = async (account: any, config: PublicKey) => {
 };
 
 export const logSupplyResourceData = async (
-    auctionFactorySequence: number,
+    auctionFactorySequence: BN,
     auction: PublicKey,
     auctionFactoryAddress: PublicKey,
     mint: PublicKey

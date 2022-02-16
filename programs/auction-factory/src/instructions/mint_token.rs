@@ -7,7 +7,7 @@ use {
 // custom mint_to instruction since a PDA can only sign from an on-chain program.
 // and, the mint_to ixn requires the authority to sign in the case of no multisig.
 // source: https://github.com/solana-labs/solana-program-library/blob/e29bc53c5f572073908fb89c6812d22f6f5eecf5/token/js/client/token.js#L1731
-pub fn mint_to_auction(
+pub fn handle(
     ctx: &Context<CreateTokenMint>,
     bump: u8,
     sequence: u64,

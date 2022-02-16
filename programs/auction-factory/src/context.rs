@@ -206,33 +206,6 @@ pub struct SupplyResource<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-// #[derive(Accounts)]
-// #[instruction(
-//     auction_factory_bump: u8,
-//     seed: String,
-// )]
-// pub struct SignTokenMetadata<'info> {
-//     #[account(mut)]
-//     pub payer: Signer<'info>,
-//     #[account(
-//         seeds = [
-//             AUX_FACTORY_SEED.as_bytes(),
-//             seed.as_bytes(),
-//         ],
-//         bump = auction_factory_bump,
-//         constraint = auction_factory.to_account_info().owner == program_id,
-//     )]
-//     pub auction_factory: Account<'info, AuctionFactory>,
-//     #[account(
-//         // mut,
-//         constraint = mint.decimals == 0,
-//         constraint = mint.supply == 1,
-//         constraint = mint.freeze_authority.unwrap() == auction.key(),
-//         constraint = mint.mint_authority.unwrap() == auction.key(),
-//     )]
-//     pub mint: Account<'info, Mint>,
-// }
-
 #[derive(Accounts)]
 #[instruction(
     auction_factory_bump: u8,
@@ -270,10 +243,9 @@ pub struct PlaceBid<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// todo: add contraints for auction + bidder token account
 #[derive(Accounts)]
 #[instruction(
-    bidder_token_account_bump: u8,
+    bidder_account_bump: u8,
     auction_factory_bump: u8,
     seed: String,
     auction_bump: u8,
@@ -316,7 +288,7 @@ pub struct SettleAuction<'info> {
     pub treasury: AccountInfo<'info>,
     #[account(mut)]
     pub metadata: AccountInfo<'info>,
-    // not used in the case of auctions without any bids
+    // not used in the case of auctions without any bids, do account validation on-chain.
     #[account(mut)]
     pub bidder_token_account: AccountInfo<'info>,
     #[account(
@@ -381,25 +353,6 @@ pub struct CloseAuctionTokenAccount<'info> {
 /// ===================================
 /// context for admin instructions  ///
 /// ===================================
-
-#[derive(Accounts)]
-#[instruction(bump: u8, seed: String, max_supply: u32)]
-pub struct InitializeConfig<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    #[account(init,
-        seeds = [
-            URI_CONFIG_SEED.as_bytes(),
-            seed.as_bytes(),
-        ],
-        bump = bump,
-        payer = payer,
-        space = InitializeConfig::space(max_supply),
-        constraint = config.to_account_info().owner == program_id,
-    )]
-    pub config: Account<'info, Config>,
-    pub system_program: Program<'info, System>,
-}
 
 #[derive(Accounts)]
 #[instruction(
@@ -517,32 +470,6 @@ pub struct UpdateAuctionFactoryTreasury<'info> {
         // since we are setting a new treasury, ignore check treasury.key() == auction_factory.treasury.key()
     )]
     pub treasury: AccountInfo<'info>,
-}
-
-#[derive(Accounts)]
-#[instruction(auction_factory_bump: u8, seed: String, config_bump: u8, config_seed: String)]
-pub struct AddUrisToConfig<'info> {
-    pub payer: Signer<'info>,
-    #[account(mut,
-        seeds = [
-            URI_CONFIG_SEED.as_bytes(),
-            config_seed.as_bytes(),
-        ],
-        bump = config_bump,
-    )]
-    pub config: Account<'info, Config>,
-    #[account(
-        seeds = [
-            AUX_FACTORY_SEED.as_bytes(),
-            seed.as_bytes()
-        ],
-        bump = auction_factory_bump,
-        constraint = auction_factory.authority.key() == payer.key(),
-        constraint = auction_factory.config.key() == config.key(),
-        constraint = auction_factory.to_account_info().owner == program_id,
-    )]
-    pub auction_factory: Account<'info, AuctionFactory>,
-    pub system_program: Program<'info, System>,
 }
 
 // ================ IMPL FOR CPI CONTEXT ================
@@ -679,21 +606,54 @@ impl<'info> SupplyResource<'info> {
     }
 }
 
-// impl<'info> SignTokenMetadata<'info> {
-//     pub fn into_sign_metadata_context(
-//         &self,
-//     ) -> CpiContext<'_, '_, '_, 'info, SignMetadata<'info>> {
-//         let cpi_program = self.token_metadata_program.to_account_info();
+/// ===================================
+/// context for new config          ///
+/// ===================================
 
-//         let cpi_accounts = UpdateMetadata {
-//             metadata: self.metadata.to_account_info(),
-//             creator: self.creator.to_account_info(),
-//             token_metadata_program: self.token_metadata_program.to_account_info(),
-//         };
+#[derive(Accounts)]
+#[instruction(bump: u8, seed: String, max_supply: u32)]
+pub struct InitializeConfig<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(init,
+        seeds = [
+            URI_CONFIG_SEED.as_bytes(),
+            seed.as_bytes(),
+        ],
+        bump = bump,
+        payer = payer,
+        space = InitializeConfig::space(max_supply),
+        constraint = config.to_account_info().owner == program_id,
+    )]
+    pub config: Account<'info, Config>,
+    pub system_program: Program<'info, System>,
+}
 
-//         CpiContext::new(cpi_program, cpi_accounts)
-//     }
-// }
+#[derive(Accounts)]
+#[instruction(auction_factory_bump: u8, seed: String, config_bump: u8, config_seed: String)]
+pub struct AddUrisToConfig<'info> {
+    pub payer: Signer<'info>,
+    #[account(mut,
+        seeds = [
+            URI_CONFIG_SEED.as_bytes(),
+            config_seed.as_bytes(),
+        ],
+        bump = config_bump,
+    )]
+    pub config: Account<'info, Config>,
+    #[account(
+        seeds = [
+            AUX_FACTORY_SEED.as_bytes(),
+            seed.as_bytes()
+        ],
+        bump = auction_factory_bump,
+        constraint = auction_factory.authority.key() == payer.key(),
+        constraint = auction_factory.config.key() == config.key(),
+        constraint = auction_factory.to_account_info().owner == program_id,
+    )]
+    pub auction_factory: Account<'info, AuctionFactory>,
+    pub system_program: Program<'info, System>,
+}
 
 impl<'info> InitializeConfig<'info> {
     // 10 MB is max account storage size. max uri len in metaplex metadata standard is 200.

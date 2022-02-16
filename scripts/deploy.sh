@@ -35,6 +35,7 @@ sed -i'.original' -e "s/$old_auction_factory_pk/$new_auction_factory_pk/g" ./Anc
 sed -i'.original' -e "s/$old_auction_factory_pk/$new_auction_factory_pk/g" ./programs/auction-factory/src/lib.rs
 sed -i'.original' -e "s/$old_auction_factory_pk/$new_auction_factory_pk/g" ./programs/auction-factory/src/constant.rs
 sed -i'.original' -e "s/$old_auction_factory_pk/$new_auction_factory_pk/g" ./sdk/src/common/constant.ts
+sed -i'.original' -e "s/$old_auction_factory_pk/$new_auction_factory_pk/g" ./app/src/utils/constants.ts
 # replace in other files as well. maybe grep & grab files so we don't have to manually update this?
 echo AF REPLACED!
 
@@ -42,10 +43,11 @@ echo AF REPLACED!
 anchor build
 
 # copy idl
-cp ./target/idl/auction_factory.json ./app/public/
+cp -r ./target/types ./sdk/src/
+cp -r ./target/idl/ ./app/src/types
 
 # deploy!
 solana balance # enough lamports left for deployment?
-# anchor deploy --provider.cluster devnet
-# echo DEPLOYED TO DEVNET
-# solana balance
+anchor deploy --provider.cluster $network
+echo "DEPLOYED TO $network"
+solana balance

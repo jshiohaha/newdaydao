@@ -55,7 +55,6 @@ if (getAnchorEnv() === Network.Localnet && RUN_ALL_TESTS) {
             let totalConfigSize = 0;
             const numConfigsToAddPerCall = 10;
             while (totalConfigSize <= MAX_CONFIG_VEC_SIZE) {
-                console.log("config size: ", totalConfigSize);
                 const new_uris_for_empty_config = generateConfigs(
                     numConfigsToAddPerCall,
                     75

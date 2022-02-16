@@ -77,19 +77,6 @@ impl AuctionFactory {
         self.active_since = current_timestamp;
     }
 
-    // increment sequence when a new auction is created,
-    // so current auction sequence is actually
-    // seq = 0: 0
-    // seq > 0: seq-1
-    // note: do not use when using current_sequence as a nonce.
-    pub fn get_current_sequence(&mut self) -> u64 {
-        if self.sequence > 0 {
-            return self.sequence.checked_sub(1).unwrap();
-        }
-
-        return self.sequence;
-    }
-
     pub fn increment_sequence(&mut self) {
         let updated_sequence = self.sequence + 1;
         self.sequence = updated_sequence;

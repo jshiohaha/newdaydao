@@ -1,5 +1,5 @@
 // program level constants
-pub const AUX_FAX_PROGRAM_ID: &str = "77mmXYT473UjsGP7pwmbNjSVG37Fe7LjwnG9eVapiRSK";
+pub const AUX_FAX_PROGRAM_ID: &str = "2jbfTkQ4DgbSZtb8KTq61v2ox8s1GCuGebKa1EPq3tbY";
 pub const SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID: &str =
     "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
 

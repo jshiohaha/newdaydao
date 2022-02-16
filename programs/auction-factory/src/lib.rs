@@ -19,11 +19,12 @@ use {
     },
     util::{
         general::get_available_lamports,
-        metadata::provide_metadata
+        metadata::provide_metadata,
     },
+    error::ErrorCode
 };
 
-declare_id!("77mmXYT473UjsGP7pwmbNjSVG37Fe7LjwnG9eVapiRSK");
+declare_id!("2jbfTkQ4DgbSZtb8KTq61v2ox8s1GCuGebKa1EPq3tbY");
 
 #[program]
 pub mod auction_factory {
@@ -40,7 +41,7 @@ pub mod auction_factory {
         auction_bump: u8,
         sequence: u64,
     ) -> ProgramResult {
-        instructions::mint_token::mint_to_auction(&ctx, auction_bump, sequence)?;
+        instructions::mint_token::handle(&ctx, auction_bump, sequence)?;
 
         Ok(())
     }
@@ -100,7 +101,7 @@ pub mod auction_factory {
 
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
-        let current_sequence = ctx.accounts.auction_factory.get_current_sequence();
+        let current_sequence = ctx.accounts.auction_factory.sequence;
         verify::verify_auction_address_for_factory(
             current_sequence,
             ctx.accounts.auction_factory.key(),
@@ -113,8 +114,6 @@ pub mod auction_factory {
             .accounts
             .config
             .get_item(current_sequence.try_into().unwrap())?;
-
-        msg!("fetched {} from config", uri);
 
         let auction_factory_key = ctx.accounts.auction_factory.key();
         let metadata_info = provide_metadata(
@@ -132,28 +131,28 @@ pub mod auction_factory {
             &[auction_bump],
         ];
 
-        instructions::create_metadata::create_metadata(
+        instructions::create_metadata::handle(
             ctx.accounts
                 .into_create_metadata_context()
                 .with_signer(&[auction_seeds]),
             metadata_info,
         )?;
 
-        instructions::create_master_edition::create_master_edition_metadata(
+        instructions::create_master_edition::handle(
             ctx.accounts
                 .into_create_master_edition_metadata_context()
                 .with_signer(&[auction_seeds]),
         )?;
 
         // update token metadata so that primary_sale_happened = true
-        instructions::update_metadata::update_metadata_after_primary_sale(
+        instructions::update_metadata::handle(
             ctx.accounts
                 .into_update_metadata_context()
                 .with_signer(&[auction_seeds]),
         )?;
 
         // auction factory immediately signs metadata as a creator so that it doesn't have to do later
-        instructions::sign_metadata::sign_token_metadata(
+        instructions::sign_metadata::handle(
             ctx.accounts
                 .into_sign_metadata_context()
                 .with_signer(&[&[
@@ -179,7 +178,7 @@ pub mod auction_factory {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
         verify::verify_auction_address_for_factory(
-            ctx.accounts.auction_factory.get_current_sequence(),
+            ctx.accounts.auction_factory.sequence,
             ctx.accounts.auction_factory.key(),
             ctx.accounts.auction.key(),
         )?;
@@ -202,7 +201,7 @@ pub mod auction_factory {
 
         instructions::place_bid::transfer_bid_amount(&ctx, amount)?;
         instructions::place_bid::return_losing_bid_amount(&ctx)?;
-        instructions::place_bid::place(
+        instructions::place_bid::handle(
             amount,
             ctx.accounts.bidder.key(),
             &mut ctx.accounts.auction,
@@ -221,7 +220,7 @@ pub mod auction_factory {
     ) -> ProgramResult {
         // avoid auction factory is active check. users should have option to settle current auction regardless of auction factory status.
         verify::verify_auction_address_for_factory(
-            ctx.accounts.auction_factory.get_current_sequence(),
+            ctx.accounts.auction_factory.sequence,
             ctx.accounts.auction_factory.key(),
             ctx.accounts.auction.key(),
         )?;
@@ -233,7 +232,7 @@ pub mod auction_factory {
                 "settling auction with no bids: {}",
                 ctx.accounts.auction.key().to_string()
             );
-            instructions::settle_auction::settle_empty_auction(ctx, auction_bump, sequence)?;
+            instructions::settle_auction::handle_empty_auction(ctx, auction_bump, sequence)?;
         } else {
             msg!(
                 "settling auction [{}] with winning bid = {}",
@@ -247,7 +246,7 @@ pub mod auction_factory {
                 bidder_account_bump,
             )?;
 
-            instructions::settle_auction::settle(ctx, auction_bump, sequence)?;
+            instructions::settle_auction::handle_auction(ctx, auction_bump, sequence)?;
         }
 
         Ok(())
@@ -279,19 +278,6 @@ pub mod auction_factory {
     /// admin instructions              ///
     /// ===================================
 
-    pub fn initialize_config(
-        ctx: Context<InitializeConfig>,
-        bump: u8,
-        seed: String,
-        max_supply: u32,
-    ) -> ProgramResult {
-        verify::verify_config_seed(&seed)?;
-
-        ctx.accounts.config.init(bump, max_supply, seed);
-
-        Ok(())
-    }
-
     pub fn initialize_auction_factory(
         ctx: Context<InitializeAuctionFactory>,
         bump: u8,
@@ -310,24 +296,6 @@ pub mod auction_factory {
             ctx.accounts.config.key(),
             data,
         );
-
-        Ok(())
-    }
-
-    // update config account ixn intentionally excluded since we treat config as a circular buffer.
-    // we should be able to use same config forever. can optionally add this later if needed.
-
-    pub fn add_uris_to_config(
-        ctx: Context<AddUrisToConfig>,
-        _auction_factory_bump: u8,
-        _seed: String,
-        _config_bump: u8,
-        _config_seed: String,
-        config_data: Vec<String>,
-    ) -> ProgramResult {
-        ctx.accounts
-            .config
-            .add_data(ctx.accounts.auction_factory.sequence as usize, config_data)?;
 
         Ok(())
     }
@@ -423,6 +391,41 @@ pub mod auction_factory {
 
         Ok(())
     }
+
+    /// ===================================
+    /// conifg instructions             ///
+    /// ===================================
+
+    pub fn initialize_config(
+        ctx: Context<InitializeConfig>,
+        bump: u8,
+        seed: String,
+        max_supply: u32,
+    ) -> ProgramResult {
+        verify::verify_config_seed(&seed)?;
+
+        ctx.accounts.config.init(bump, max_supply, seed);
+
+        Ok(())
+    }
+
+    // update config account ixn intentionally excluded since we treat config as a circular buffer.
+    // we should be able to use same config forever. can optionally add this later if needed.
+
+    pub fn add_uris_to_config(
+        ctx: Context<AddUrisToConfig>,
+        _auction_factory_bump: u8,
+        _seed: String,
+        _config_bump: u8,
+        _config_seed: String,
+        config_data: Vec<String>,
+    ) -> ProgramResult {
+        ctx.accounts
+            .config
+            .add_data(ctx.accounts.auction_factory.sequence as usize, config_data)?;
+
+        Ok(())
+    }
 }
 
 /// ====================================================================
@@ -438,8 +441,11 @@ pub fn create_auction_helper(
 ) -> ProgramResult {
     verify::verify_auction_factory_is_active(&auction_factory)?;
 
+    let next_sequence = auction_factory.sequence
+        .checked_add(1)
+        .ok_or(ErrorCode::NumericalOverflowError)?;
     verify::verify_auction_address_for_factory(
-        auction_factory.sequence,
+        next_sequence,
         auction_factory.key(),
         next_auction.key(),
     )?;
@@ -451,7 +457,7 @@ pub fn create_auction_helper(
         verify::verify_auction_factory_for_first_auction(&auction_factory)?;
     }
 
-    instructions::create_auction::create(next_auction_bump, next_auction, auction_factory)?;
+    instructions::create_auction::handle(next_auction_bump, next_auction, auction_factory)?;
 
     Ok(())
 }

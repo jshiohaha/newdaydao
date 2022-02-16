@@ -1,7 +1,8 @@
 import { PublicKey } from "@solana/web3.js";
+import { BN } from '@project-serum/anchor';
 
 export const AUX_FACTORY_PROGRAM_ID = new PublicKey(
-    "77mmXYT473UjsGP7pwmbNjSVG37Fe7LjwnG9eVapiRSK"
+    "2jbfTkQ4DgbSZtb8KTq61v2ox8s1GCuGebKa1EPq3tbY"
 );
 
 export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
@@ -18,3 +19,6 @@ export const URI_CONFIG_SEED = "config";
 
 export const AUCTION_FACTORY_SEED_LEN = 5;
 export const CONFIG_SEED_LEN = 5;
+
+export const BN_ZERO = new BN(0);
+export const BN_ONE = new BN(1);

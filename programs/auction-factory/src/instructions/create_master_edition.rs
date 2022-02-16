@@ -24,7 +24,7 @@ pub struct CreateMasterEdition<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn create_master_edition_metadata<'a, 'b, 'c, 'info>(
+pub fn handle<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, CreateMasterEdition<'info>>,
 ) -> ProgramResult {
     invoke_signed(

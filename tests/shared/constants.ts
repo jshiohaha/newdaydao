@@ -22,5 +22,5 @@ export const CONFIG_SEED_LEN = 5;
 // note: i recommend only running these tests that require this boolean on localnet.
 // i'm guessing they will use up quite a bit of sweet sweet SOL, otherwise.
 // ============================================================================
-export const RUN_ALL_TESTS = true;
+export const RUN_ALL_TESTS = false;
 // ============================================================================
