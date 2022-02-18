@@ -1,0 +1,7 @@
+.content--container {
+    width: max-content;
+    margin: auto;
+    display: block;
+    position: relative;
+    margin-top: 3rem;
+}

@@ -1,0 +1,43 @@
+.title {
+    font-weight: 400;
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.timer-wrapper {
+    display: flex;
+    margin: 0;
+}
+
+.timer--section {
+    margin-right: 0.5rem;
+    font-size: 2rem;
+    font-weight: 400;
+}
+
+.small {
+    padding-left: 0.1rem;
+    font-size: 0.65em;
+}
+
+.timeSubtitle {
+    font-size: medium;
+}
+
+.clockSection {
+    margin-right: 0rem;
+    min-width: 250px;
+}
+
+.auction--timer--section {
+    cursor: pointer;
+}
+
+.timer--click--disabled {
+    cursor: auto;
+}
+
+.auction--ended--text {
+    font-size: 2rem;
+    font-weight: 400;
+}

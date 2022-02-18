@@ -1,0 +1,12 @@
+.bid--info--wrapper {
+    margin: 1rem 0;
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+}
+
+.see--more--bids--text {
+    position: relative;
+    float: right;
+    font-size: 1rem;
+    cursor: pointer;
+}

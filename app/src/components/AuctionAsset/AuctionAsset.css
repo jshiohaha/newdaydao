@@ -1,0 +1,23 @@
+.asset--wrapper {
+    height: 30rem;
+    width: 30rem;
+    z-index: 1;
+    position: relative;
+}
+
+.asset--content {
+    height: 100%;
+    width: 100%;
+    border-radius: 1rem;
+}
+
+.undefined--asset--content {
+    background-color: #000;
+}
+
+.asset--text {
+    margin: 0px;
+    width: max-content;
+    position: relative;
+    margin: auto;
+}
