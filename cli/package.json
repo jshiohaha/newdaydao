@@ -26,6 +26,9 @@
                 }
             ],
             "@babel/preset-typescript"
+        ],
+        "plugins": [
+            "@emotion"
         ]
     },
     "jest": {
@@ -35,7 +38,7 @@
         ]
     },
     "dependencies": {
-        "@auction-factory/sdk": "file:../../sdk",
+        "@auction-factory/sdk": "file:../sdk",
         "@project-serum/anchor": "^0.17.0",
         "@solana/spl-token": "^0.1.8",
         "@solana/web3.js": "1.33.0",
