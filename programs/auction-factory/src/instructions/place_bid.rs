@@ -1,41 +1,48 @@
+use crate::state::{auction_factory::AuctionFactory, bid::Bid};
+
 use {
-    anchor_lang::prelude::*,
     crate::{
         context::PlaceBid, error::ErrorCode, instructions::transfer::transfer_from_signer,
-        structs::auction::Auction,
-    }
+        state::auction::Auction,
+    },
+    anchor_lang::prelude::*,
 };
 
-pub fn return_losing_bid_amount(ctx: &Context<PlaceBid>) -> ProgramResult {
-    let amount = ctx.accounts.auction.amount;
-    let reserve_price = ctx.accounts.auction_factory.data.min_reserve_price;
+pub fn return_losing_bid_amount(
+    auction_factory: &Account<AuctionFactory>,
+    leading_bidder_info: &AccountInfo,
+    auction_info: &AccountInfo,
+    leading_bid: &Bid,
+) -> Result<()> {
+    let amount = leading_bid.amount;
+    let reserve_price = auction_factory.data.min_reserve_price;
 
     // ignore any amount that is <= min_reserve_price, that will be first bid
     if amount > reserve_price {
-        let leading_bidder = ctx.accounts.auction.bidder;
-        assert!(leading_bidder.eq(ctx.accounts.leading_bidder.key));
+        let leading_bidder = leading_bid.bidder;
+        assert!(leading_bidder.eq(leading_bidder_info.key));
 
         // since our auction PDA has data in it, we cannot use the system program to withdraw SOL.
         // otherwise, we will get an error message that says:
         // >> Transfer: `from` must not carry data
         // error message source: https://github.com/solana-labs/solana/blob/master/runtime/src/system_instruction_processor.rs#L189
         // s/o to the solana tech discord history for the help.
-        let newest_losing_bidder = &ctx.accounts.leading_bidder;
-        let auction_as_payer = &ctx.accounts.auction.to_account_info();
+        // ===> newest_losing_bidder = leading_bidder_info
+
         // protect ourselves from attempting to deduct too many lamports. if auction account lamport balance falls,
         // below rent price, then we could be subject to paying rent/the garbage collector automatically closing our account,
         // but i think that is worst case scenario here. any malicious program/behavior would be able to deduct max lamports
         // in this auction account.
-        let amount_after_deduction: u64 = auction_as_payer
+        let amount_after_deduction: u64 = auction_info
             .lamports()
             .checked_sub(amount)
             .ok_or(ErrorCode::InsufficientAccountBalance)?;
 
         // sub from auction
-        **auction_as_payer.lamports.borrow_mut() = amount_after_deduction;
+        **auction_info.lamports.borrow_mut() = amount_after_deduction;
 
         // return lamports to losing bidder
-        **newest_losing_bidder.lamports.borrow_mut() = newest_losing_bidder
+        **leading_bidder_info.lamports.borrow_mut() = leading_bidder_info
             .lamports()
             .checked_add(amount)
             .ok_or(ErrorCode::NumericalOverflowError)?;
@@ -44,14 +51,23 @@ pub fn return_losing_bid_amount(ctx: &Context<PlaceBid>) -> ProgramResult {
     Ok(())
 }
 
-pub fn transfer_bid_amount(ctx: &Context<PlaceBid>, amount: u64) -> ProgramResult {
+// transfer bid amount in target mint (currently, only SOL) from bidder to auction
+pub fn transfer_bid_amount(ctx: &Context<PlaceBid>, amount: u64) -> Result<()> {
     transfer_from_signer(ctx.accounts.into_receive_bid_context(), amount)?;
 
     Ok(())
 }
 
-pub fn handle(amount: u64, bidder: Pubkey, auction: &mut Auction) -> ProgramResult {
-    auction.update_auction_with_bid(amount, bidder)?;
+pub fn handle(
+    bid_bump: u8,
+    bid: &mut Bid,
+    amount: u64,
+    bidder: Pubkey,
+    auction: &mut Account<Auction>,
+) -> Result<()> {
+    bid.init_bid(bid_bump, auction.key(), auction.num_bids, bidder, amount);
+
+    auction.update_auction_after_bid()?;
 
     Ok(())
 }

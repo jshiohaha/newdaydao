@@ -34,8 +34,14 @@
     z-index: 100;
 }
 
-.bid--history--title {
-    margin-top: 0;
+.bid--history--title,
+.bid--history--descriptor {
+    margin: 0;
+}
+
+.bid--history--descriptor {
+    font-weight: 400;
+    font-size: 1.125rem;
 }
 
 .bid--history--items {
@@ -43,4 +49,11 @@
     overflow-y: scroll;
     outline: medium none currentcolor;
     background: transparent none repeat scroll 0;
+    list-style: none;
+    padding-left: 0;
+}
+
+.bid--item {
+    position: relative;
+    margin-bottom: 0.5rem;
 }

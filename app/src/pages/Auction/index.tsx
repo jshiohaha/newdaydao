@@ -1,54 +1,70 @@
-import AuctionDisplay from "../../components/AuctionDisplay";
+import { useState, useEffect } from 'react';
+
+import AuctionDetails from '../../components/AuctionDetails';
+import AuctionAsset from '../../components/AuctionAsset';
+import Countdown from '../../components/Countdown';
+import { useAuctionFactory } from '../../hooks/useAuctionFactory';
 
 import "./Auction.css";
+import { BN_ONE, BN_ZERO } from '@auction-factory/sdk';
 
-export const AuctionPage = () => {
-    // const client = new AuctionFactoryClient(
-    //     connection.connection,
-    //     wallet as any,
-    //     undefined,
-    //     undefined
-    // );
+const Auction = () => {
+    const {
+        auction,
+        auctionFactory,
+        refreshNftMetadata,
+        incrementSequence,
+        decrementSequence
+    } = useAuctionFactory();
+    const [metadataUri, setMetadataUri] = useState<string|undefined>(undefined);
+    const [sequence, setSequence] = useState<number>(0);
+    const [endTime, setEndTime] = useState<number|undefined>(0);
 
-    // const loadAuctionFactory = async () => {
-    //     const fetchedAuctionFactory = await fetchAuctionFactoryAccountFake(
-    //         program,
-    //         AUTHORITY_PUBLIC_KEY
-    //     );
+    useEffect(() => {
+        const loadMetadata = async () => {
+            return await refreshNftMetadata();
+        };
 
-    //     setAuctionFactory(fetchedAuctionFactory);
-    // };
+        if (!auction) return;
 
-    // const loadCurrentAuction = async () => {
-    //     if (auctionFactory !== undefined) {
-    //         const fetchedAuction = await fetchAuctionAccountFake(
-    //             program,
-    //             auctionFactory.sequence,
-    //             auctionFactory.authority
-    //         );
+        loadMetadata()
+            .then(uri => {
+                setMetadataUri(uri);
+            })
+            .catch(err => console.log(err));
 
-    //         setAuction(fetchedAuction);
-    //     }
-    // };
+        setEndTime(auction.endTime.toNumber());
+        setSequence(auction.sequence.toNumber());
+    }, [auction?.sequence]);
 
-    // useEffect(() => {
-    //     loadAuctionFactory()
-    //         .catch(err => console.log(err));
-    // }, []);
+    const decrementAuctionSequence = () => decrementSequence();
 
-    // useEffect(() => {
-    //     loadCurrentAuction()
-    //         .catch(err => console.log(err));
-    // }, [auctionFactory]);
+    const incrementAuctionSequence = () => incrementSequence();
+
+    const isLeftNavigationDisalbled = () => auction?.sequence.eq(BN_ONE);
+
+    const isRightNavigationDisalbled = () => auction?.sequence.gte(auctionFactory!.sequence)
 
     return (
-        <>
-            <div className="content--container">
-                {/* fix possibly undefined */}
-                <AuctionDisplay />
+        <div className="auction--display--wrapper">
+            <div className="auction--navigation--wrapper">
+                <button className={`auction--navigation navigation--left ${isLeftNavigationDisalbled() && 'navigation--disabled'}`} disabled={isLeftNavigationDisalbled()} onClick={decrementAuctionSequence}>←</button>
+                <button className={`auction--navigation navigation--right ${isRightNavigationDisalbled() && 'navigation--disabled'}`} disabled={isRightNavigationDisalbled()} onClick={incrementAuctionSequence}>→</button>
             </div>
-        </>
-    );
-};
 
-export default AuctionPage;
+            <AuctionAsset metadataUri={metadataUri} />
+
+            <div className="auction--info--wrapper">
+                <div className="auction--info--container">
+                    <h1 className="auction--title">{sequence === 0 ? 'No auctions yet' : `Auction ${sequence}`}</h1>
+                    {/* <Countdown endTime={endTime} /> */}
+
+                    <AuctionDetails />
+                </div>
+            </div>
+
+        </div>
+    );
+}
+
+export default Auction;

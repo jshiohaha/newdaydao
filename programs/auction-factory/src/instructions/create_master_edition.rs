@@ -1,22 +1,28 @@
 use {
-    anchor_lang::prelude::*,
-    anchor_spl::token::Token,
+    anchor_lang::prelude::*, anchor_spl::token::Token,
     mpl_token_metadata::instruction::create_master_edition_v3,
-    solana_program::program::invoke_signed
+    solana_program::program::invoke_signed,
 };
 
 #[derive(Accounts)]
 pub struct CreateMasterEdition<'info> {
+    /// CHECK: verified via cpi in the metadata program
     pub payer: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the metadata program
     // the following accounts aren't using anchor macros because CPI invocation
     // will do the required validations.
     pub metadata: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the metadata program
     pub master_edition: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the metadata program
     // mint address the token with which metadata will be associated
     pub mint: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the metadata program
     pub mint_authority: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the metadata program
     // account with authority to update metadata, if mutable
     pub update_authority: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the metadata program
     #[account(address = spl_token_metadata::id())]
     pub token_metadata_program: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
@@ -26,7 +32,7 @@ pub struct CreateMasterEdition<'info> {
 
 pub fn handle<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, CreateMasterEdition<'info>>,
-) -> ProgramResult {
+) -> Result<()> {
     invoke_signed(
         &create_master_edition_v3(
             *ctx.accounts.token_metadata_program.key,

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-#[error]
+#[error_code]
 pub enum ErrorCode {
     // token account
     #[msg("Account does not have correct owner!")]
@@ -59,6 +59,8 @@ pub enum ErrorCode {
     WrongSettleAuctionEndpoint,
     #[msg("Must supply resource to auction before settling!")]
     AuctionHasNoResourceAvailable,
+    #[msg("Invalid bid account supplied")]
+    InvalidBidAccount,
 
     // numbooooooor ops
     #[msg("Numerical overflow error!")]

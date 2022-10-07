@@ -1,16 +1,12 @@
 use {
     crate::{
-        structs::auction::Auction, structs::auction_factory::AuctionFactory,
+        state::auction::Auction, state::auction_factory::AuctionFactory,
         util::general::get_current_timestamp,
     },
     anchor_lang::prelude::*,
 };
 
-pub fn handle(
-    bump: u8,
-    auction: &mut Auction,
-    auction_factory: &mut AuctionFactory,
-) -> ProgramResult {
+pub fn handle(bump: u8, auction: &mut Auction, auction_factory: &mut AuctionFactory) -> Result<()> {
     let current_timestamp = get_current_timestamp().unwrap();
 
     // don't move: keeps auction factory sequence === auction sequence

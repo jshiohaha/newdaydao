@@ -62,6 +62,10 @@ export const LEAKED_WALLET_KEYPAIR = () => {
     return new NodeWallet(leakedKp);
 };
 
+// loading state config
+export const LOADING_COLOR = "#ffffff";
+// Can be a string as well. Need to ensure each key-value pair ends with ;
+export const OVERRIDE = "display: block; margin: 0 auto; border-color: red;";
 export const AVATAR_COLORS = [
     "#92A1C6",
     "#146A7C",
@@ -69,4 +73,5 @@ export const AVATAR_COLORS = [
     "#C271B4",
     "#C20D90",
 ];
-
+export const LOADING_STATE_SIZE = 10;
+export const LOADING_SPEED_MULTIPLIER = 0.75;

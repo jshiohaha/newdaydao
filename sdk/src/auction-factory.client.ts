@@ -163,8 +163,6 @@ export class AuctionFactoryClient extends AccountUtils {
         return await this.getBalance(this.auctionFactory.config.address);
     };
 
-    // getAuctionBalance();
-    // getAuctionFactoryBalance();
     // ============================================================================
     // auction factory client
     // ============================================================================
@@ -189,7 +187,7 @@ export class AuctionFactoryClient extends AccountUtils {
                 bump,
                 seed,
             },
-            treasury
+            treasury,
         };
     };
 
@@ -221,11 +219,11 @@ export class AuctionFactoryClient extends AccountUtils {
         config: AuctionFactoryData,
         treasury: PublicKey,
         payer: PublicKey | Keypair
-    ) => {
+    ): Promise<string> => {
         const signerInfo = getSignersFromPayer(payer);
 
         this.validateConfig();
-        await this.program.rpc.initializeAuctionFactory(
+        const sig = await this.program.rpc.initializeAuctionFactory(
             bump,
             seed,
             this.config.bump,
@@ -249,13 +247,15 @@ export class AuctionFactoryClient extends AccountUtils {
         );
 
         this.setAuctionFactoryDetails(auctionFactory, bump, seed, treasury);
+
+        return sig;
     };
 
-    toggleStatus = async (payer: PublicKey | Keypair) => {
+    toggleStatus = async (payer: PublicKey | Keypair): Promise<string> => {
         const signerInfo = getSignersFromPayer(payer);
 
         this.validateAuctionFactory();
-        await this.program.rpc.toggleAuctionFactoryStatus(
+        return this.program.rpc.toggleAuctionFactoryStatus(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             {
@@ -268,11 +268,14 @@ export class AuctionFactoryClient extends AccountUtils {
         );
     };
 
-    modify = async (config: AuctionFactoryData, payer: PublicKey | Keypair) => {
+    modify = async (
+        config: AuctionFactoryData,
+        payer: PublicKey | Keypair
+    ): Promise<string> => {
         const signerInfo = getSignersFromPayer(payer);
 
         this.validateAuctionFactory();
-        await this.program.rpc.modifyAuctionFactoryData(
+        return this.program.rpc.modifyAuctionFactoryData(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             config,
@@ -289,11 +292,11 @@ export class AuctionFactoryClient extends AccountUtils {
     updateTreasury = async (
         treasury: PublicKey,
         payer: PublicKey | Keypair
-    ) => {
+    ): Promise<string> => {
         const signerInfo = getSignersFromPayer(payer);
 
         this.validateAuctionFactory();
-        await this.program.rpc.updateTreasury(
+        const sig = await this.program.rpc.updateTreasury(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             {
@@ -313,16 +316,18 @@ export class AuctionFactoryClient extends AccountUtils {
             this.auctionFactory.config.seed,
             treasury
         );
+
+        return sig;
     };
 
     updateAuthority = async (
         authority: PublicKey,
         payer: PublicKey | Keypair
-    ) => {
+    ): Promise<string> => {
         const signerInfo = getSignersFromPayer(payer);
 
         this.validateAuctionFactory();
-        await this.program.rpc.updateAuthority(
+        return this.program.rpc.updateAuthority(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             {
@@ -336,11 +341,14 @@ export class AuctionFactoryClient extends AccountUtils {
         );
     };
 
-    transferLamports = async (dest: PublicKey, payer: PublicKey | Keypair) => {
+    transferLamports = async (
+        dest: PublicKey,
+        payer: PublicKey | Keypair
+    ): Promise<string> => {
         const signerInfo = getSignersFromPayer(payer);
 
         this.validateAuctionFactory();
-        await this.program.rpc.transferLamportsToTreasury(
+        return this.program.rpc.transferLamportsToTreasury(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             {
@@ -365,14 +373,15 @@ export class AuctionFactoryClient extends AccountUtils {
         bump: number,
         sequence: BN,
         payer: PublicKey | Keypair
-    ) => {
+    ): Promise<string> => {
         const signerInfo = getSignersFromPayer(payer);
 
         this.validateAuctionFactory();
         this.validateConfig();
 
+        let sig;
         if (sequence.eq(BN_ONE)) {
-            await this.program.rpc.createFirstAuction(
+            sig = await this.program.rpc.createFirstAuction(
                 this.auctionFactory.config.bump,
                 this.auctionFactory.config.seed,
                 bump,
@@ -394,7 +403,7 @@ export class AuctionFactoryClient extends AccountUtils {
                     this.auctionFactory.config.address
                 );
 
-            await this.program.rpc.createNextAuction(
+            sig = await this.program.rpc.createNextAuction(
                 this.auctionFactory.config.bump,
                 this.auctionFactory.config.seed,
                 currentAuctionBump,
@@ -414,7 +423,7 @@ export class AuctionFactoryClient extends AccountUtils {
             );
         }
 
-        return;
+        return sig;
     };
 
     buildMintToAuctionInstruction = async (
@@ -446,7 +455,7 @@ export class AuctionFactoryClient extends AccountUtils {
         sequence: BN,
         mint: Keypair,
         payer: PublicKey | Keypair
-    ) => {
+    ): Promise<string> => {
         const signerInfo = getSignersFromPayer(payer);
 
         console.log(
@@ -461,7 +470,7 @@ export class AuctionFactoryClient extends AccountUtils {
             );
 
         this.validateAuctionFactory();
-        await this.program.rpc.mintToAuction(
+        return this.program.rpc.mintToAuction(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             pdaData.bump,
@@ -508,7 +517,7 @@ export class AuctionFactoryClient extends AccountUtils {
         sequence: BN,
         mint: PublicKey,
         payer: PublicKey | Keypair
-    ) => {
+    ): Promise<string> => {
         this.validateConfig();
         this.validateAuctionFactory();
 
@@ -517,7 +526,7 @@ export class AuctionFactoryClient extends AccountUtils {
         const masterEdition = await this.getMasterEdition(mint);
         const pdaData = await this.fetchAuctionPdaData(sequence);
 
-        await this.program.rpc.supplyResourceToAuction(
+        return this.program.rpc.supplyResourceToAuction(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             pdaData.bump,
@@ -547,7 +556,7 @@ export class AuctionFactoryClient extends AccountUtils {
         sequence: BN,
         amount: BN,
         payer: PublicKey | Keypair // payer is bidder
-    ) => {
+    ): Promise<string> => {
         this.validateAuctionFactory();
 
         const signerInfo = getSignersFromPayer(payer);
@@ -560,7 +569,7 @@ export class AuctionFactoryClient extends AccountUtils {
                 ? auction.bidder
                 : signerInfo.payer;
 
-        await this.program.rpc.placeBid(
+        return this.program.rpc.placeBid(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             pdaData.bump,
@@ -584,7 +593,7 @@ export class AuctionFactoryClient extends AccountUtils {
         bidderTokenAccount: TokenAccount | undefined,
         mint: PublicKey,
         payer: PublicKey | Keypair
-    ) => {
+    ): Promise<string> => {
         this.validateAuctionFactory();
 
         const signerInfo = getSignersFromPayer(payer);
@@ -619,7 +628,7 @@ export class AuctionFactoryClient extends AccountUtils {
               ]
             : [];
 
-        await this.program.rpc.settleAuction(
+        return this.program.rpc.settleAuction(
             bidderTokenAccountData.bump,
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
@@ -654,12 +663,12 @@ export class AuctionFactoryClient extends AccountUtils {
         sequence: BN,
         auctionTokenAccount: PublicKey,
         payer: PublicKey | Keypair
-    ) => {
+    ): Promise<string> => {
         this.validateAuctionFactory();
 
         const signerInfo = getSignersFromPayer(payer);
 
-        await this.program.rpc.closeAuctionTokenAccount(
+        return this.program.rpc.closeAuctionTokenAccount(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             bump,
@@ -689,17 +698,22 @@ export class AuctionFactoryClient extends AccountUtils {
         seed: string,
         maxSupply: number,
         payer: PublicKey | Keypair
-    ) => {
+    ): Promise<string> => {
         const signerInfo = getSignersFromPayer(payer);
 
-        await this.program.rpc.initializeConfig(bump, seed, maxSupply, {
-            accounts: {
-                config: address,
-                payer: signerInfo.payer,
-                systemProgram: SystemProgram.programId,
-            },
-            signers: signerInfo.signers,
-        });
+        const sig = await this.program.rpc.initializeConfig(
+            bump,
+            seed,
+            maxSupply,
+            {
+                accounts: {
+                    config: address,
+                    payer: signerInfo.payer,
+                    systemProgram: SystemProgram.programId,
+                },
+                signers: signerInfo.signers,
+            }
+        );
 
         // update auction state var
         this.config = {
@@ -709,13 +723,18 @@ export class AuctionFactoryClient extends AccountUtils {
         };
 
         this.maxSupply = maxSupply;
+
+        return sig;
     };
 
-    addConfig = async (data: string[], payer: PublicKey | Keypair) => {
+    addConfig = async (
+        data: string[],
+        payer: PublicKey | Keypair
+    ): Promise<string> => {
         this.validateConfig();
         const signerInfo = getSignersFromPayer(payer);
 
-        await this.program.rpc.addUrisToConfig(
+        return this.program.rpc.addUrisToConfig(
             this.auctionFactory.config.bump,
             this.auctionFactory.config.seed,
             this.config.bump,

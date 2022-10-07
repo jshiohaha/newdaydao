@@ -4,9 +4,9 @@ use {
             AUCTION_CREATOR_SHARE, AUCTION_FACTORY_CREATOR_SHARE, SELLER_FEE_BASIS_POINTS,
             TOKEN_BASE_NAME, TOKEN_SYMBOL,
         },
-        structs::metadata::MetadataInfo
+        state::metadata::MetadataInfo,
     },
-    mpl_token_metadata::state::{Creator},
+    mpl_token_metadata::state::Creator,
     solana_program::pubkey::Pubkey,
 };
 
@@ -45,6 +45,6 @@ pub fn provide_metadata(
         is_mutable: true,
         // metaplex metadata v2 optional params
         collection: None,
-        uses: None
+        uses: None,
     };
 }

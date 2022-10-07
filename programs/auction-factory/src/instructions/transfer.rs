@@ -9,22 +9,28 @@ pub use spl_token::ID;
 
 #[derive(Accounts)]
 pub struct TransferLamports<'info> {
+    /// CHECK: verified via cpi in the token program
     pub from: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the token program
     pub to: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
 }
 
 pub struct TokenTransferParams<'a: 'b, 'b> {
+    /// CHECK: metadata accounts are verified via cpi in the token program
     /// source
     pub source: AccountInfo<'a>,
+    /// CHECK: metadata accounts are verified via cpi in the token program
     /// destination
     pub destination: AccountInfo<'a>,
     /// amount
     pub amount: u64,
+    /// CHECK: metadata accounts are verified via cpi in the token program
     /// authority
     pub authority: AccountInfo<'a>,
     /// authority_signer_seeds
     pub authority_signer_seeds: &'b [&'b [u8]],
+    /// CHECK: metadata accounts are verified via cpi in the token program
     /// token_program
     pub token_program: AccountInfo<'a>,
 }
@@ -32,7 +38,7 @@ pub struct TokenTransferParams<'a: 'b, 'b> {
 pub fn transfer_from_signer<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, TransferLamports<'info>>,
     amount: u64,
-) -> ProgramResult {
+) -> Result<()> {
     invoke(
         &solana_program::system_instruction::transfer(
             ctx.accounts.from.key,
@@ -49,7 +55,7 @@ pub fn transfer_from_signer<'a, 'b, 'c, 'info>(
     Ok(())
 }
 
-pub fn spl_token_transfer(params: TokenTransferParams<'_, '_>) -> ProgramResult {
+pub fn spl_token_transfer(params: TokenTransferParams<'_, '_>) -> Result<()> {
     let TokenTransferParams {
         source,
         destination,
@@ -78,8 +84,8 @@ pub fn spl_token_transfer(params: TokenTransferParams<'_, '_>) -> ProgramResult 
 pub fn transfer_lamports(
     source: &AccountInfo<'_>,
     dest: &AccountInfo<'_>,
-    amount: u64
-) -> ProgramResult {
+    amount: u64,
+) -> Result<()> {
     let amount_after_deduction: u64 = source
         .lamports()
         .checked_sub(amount)

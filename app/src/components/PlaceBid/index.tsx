@@ -2,20 +2,26 @@ import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import BeatLoader from "react-spinners/BeatLoader";
 import { BN } from "@project-serum/anchor";
+import toast from "react-hot-toast";
+import { isNumber } from "lodash";
 
 import {
     computeMinimumNextBid,
     convertSolToLamports,
+    getFormattedBidAmount,
 } from "../../utils/auction";
-import { walletIsConnected } from "../../utils/util";
+import { publishToastMessage, walletIsConnected } from "../../utils/util";
 import { useAuctionFactory } from "../../hooks/useAuctionFactory";
 
 import "./PlaceBid.css";
+import {
+    LOADING_COLOR,
+    LOADING_SPEED_MULTIPLIER,
+    LOADING_STATE_SIZE,
+    OVERRIDE,
+} from "../../utils/constants";
 
-const BID_TEXT = "Bid";
-const loadingColor = "#ffffff";
-// Can be a string as well. Need to ensure each key-value pair ends with ;
-const override = "display: block; margin: 0 auto; border-color: red;";
+export const BID_TEXT = "Bid";
 
 const PlaceBid = () => {
     const { auctionFactory, auction, placeBid, requestProviderRefresh } =
@@ -23,6 +29,8 @@ const PlaceBid = () => {
     const wallet = useWallet();
 
     const [bidAmount, setBidAmount] = useState("");
+    const [isValidInput, setIsValidInput] = useState(true);
+
     const [minimumBidAmount, setMinimumBidAmount] = useState<BN>(() => {
         const minBid = computeMinimumNextBid(
             auction && auction.amount
@@ -48,68 +56,55 @@ const PlaceBid = () => {
         if (!auction) throw new Error("auction is undefined");
         if (!wallet.publicKey) throw new Error("wallet is not connected");
 
-        // todo: handle non-numeric bid
-        const numericBidValue = +bidAmount;
-        console.log("bidAmount: ", numericBidValue);
-        const bidInLamports = convertSolToLamports(numericBidValue);
-        if (bidInLamports.lte(minimumBidAmount)) {
-            // todo: display invalid bid error with exact amount
-            console.log("invalid bid");
+        try {
+            const numericBidValue = +bidAmount;
+            if (!isNumber(numericBidValue)) {
+                setIsValidInput(false);
+                return;
+            }
+
+            const bidInLamports = convertSolToLamports(numericBidValue);
+            if (bidInLamports.lte(minimumBidAmount)) {
+                setIsValidInput(false);
+                return;
+            }
+
+            setIsValidInput(true);
+            setIsLoading(true);
+            await placeBid(bidInLamports, wallet);
+            setBidAmount("");
+            requestProviderRefresh();
+        } catch (e: any) {
+            publishToastMessage(e.message);
         }
 
-        // todo: handle issue when user tries to input less than actual amount
-        setIsLoading(true);
-        await placeBid(bidInLamports, wallet);
         setIsLoading(false);
-
-        setBidAmount("");
-        requestProviderRefresh();
     };
-
-    // // placing bid transaction state hook
-    // useEffect(() => {
-    //   switch (!auctionEnded && placeBidState.status) {
-    //     case 'None':
-    //       setBidButtonContent({
-    //         loading: false,
-    //         content: 'Bid',
-    //       });
-    //       break;
-    //     case 'Mining':
-    //       setBidButtonContent({ loading: true, content: '' });
-    //       break;
-    //     case 'Fail':
-    //       setModal({
-    //         title: 'Transaction Failed',
-    //         message: placeBidState.errorMessage ? placeBidState.errorMessage : 'Please try again.',
-    //         show: true,
-    //       });
-    //       setBidButtonContent({ loading: false, content: 'Bid' });
-    //       break;
-    //     case 'Exception':
-    //       setModal({
-    //         title: 'Error',
-    //         message: placeBidState.errorMessage ? placeBidState.errorMessage : 'Please try again.',
-    //         show: true,
-    //       });
-    //       setBidButtonContent({ loading: false, content: 'Bid' });
-    //       break;
-    //   }
-    // }, [placeBidState, auctionEnded, setModal]);
 
     return (
         <>
             <div className="place--bid--input--group">
-                <input
-                    aria-label="Place bid input"
-                    aria-describedby="basic-addon1"
-                    className="bid--input"
-                    type="text"
-                    min={minimumBidAmount.toNumber()}
-                    onChange={changeBidHandler}
-                    value={bidAmount}
-                    placeholder={`Min bid is ${minimumBidAmount}`}
-                />
+                <div>
+                    <input
+                        aria-label="Place bid input"
+                        aria-describedby="basic-addon1"
+                        className="bid--input"
+                        type="text"
+                        min={minimumBidAmount.toNumber()}
+                        onChange={changeBidHandler}
+                        value={bidAmount}
+                        placeholder={`More than ◎${getFormattedBidAmount(
+                            minimumBidAmount
+                        )}`}
+                    />
+                    {!isValidInput && (
+                        <span className="input--amount--error">{`Bid must be a number higher than ◎${getFormattedBidAmount(
+                            minimumBidAmount,
+                            false,
+                            4
+                        )}`}</span>
+                    )}
+                </div>
 
                 <span className="custom--placeholder">SOL</span>
                 <button
@@ -121,11 +116,11 @@ const PlaceBid = () => {
                 >
                     {isLoading ? (
                         <BeatLoader
-                            color={loadingColor}
+                            color={LOADING_COLOR}
                             loading={isLoading}
-                            css={override}
-                            size={10}
-                            speedMultiplier={0.75}
+                            css={OVERRIDE}
+                            size={LOADING_STATE_SIZE}
+                            speedMultiplier={LOADING_SPEED_MULTIPLIER}
                         />
                     ) : (
                         bidButtonContent

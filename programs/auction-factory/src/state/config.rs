@@ -57,7 +57,7 @@ impl Config {
         self.buffer = Vec::new();
     }
 
-    pub fn get_item(&mut self, sequence: usize) -> Result<String, ErrorCode> {
+    pub fn get_item(&mut self, sequence: usize) -> Result<String> {
         let max_supply: usize = self.max_supply as usize;
         let update_idx: usize = self.update_idx as usize;
 
@@ -90,7 +90,7 @@ impl Config {
         Ok(item)
     }
 
-    pub fn add_data(&mut self, seq: usize, config_data: Vec<String>) -> ProgramResult {
+    pub fn add_data(&mut self, seq: usize, config_data: Vec<String>) -> Result<()> {
         let last_updated_idx_before_write: usize = self.update_idx as usize;
         let mut last_updated_idx: usize = self.update_idx as usize;
         let max_supply = self.max_supply as usize;

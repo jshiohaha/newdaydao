@@ -52,19 +52,21 @@ const BidHistory = (props: BidHistoryProps) => {
         >
             <div ref={modalRef} className="bid--history--wrapper">
                 <h1 className="bid--history--title">{title}</h1>
-                <div className="bid--history--items">
+                <p className="bid--history--descriptor">This auction has a total of {bids?.length} bids.</p>
+
+                <ul className="bid--history--items">
                     {bids ? (
-                        bids.reverse().map((bid, idx) => {
+                        bids.slice().reverse().map((bid, idx) => {
                             return (
-                                <span key={idx} className="bid--item">
-                                    <BidDetails bidder={bid.bidder} amount={bid.amount} timestamp={bid.updatedAt} />
-                                </span>
+                                <li key={idx} className="bid--item">
+                                    <BidDetails idx={idx} bidder={bid.bidder} amount={bid.amount} timestamp={bid.updatedAt} />
+                                </li>
                             );
                         })
                     ) : (
                         <>No bids yet</>
                     )}
-                </div>
+                </ul>
             </div>
         </div>
     );

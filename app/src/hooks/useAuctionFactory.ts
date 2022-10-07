@@ -16,7 +16,9 @@ export interface AuctionFactoryContextState {
     mintNftToAuctionWithRpcCall: (wallet: WalletContextState) => Promise<void>;
     placeBid: (amount: BN, wallet: WalletContextState) => Promise<any>;
     settleAuction: (wallet: WalletContextState) => Promise<any>;
-    refreshNftMetadata: (sequence?: BN) => Promise<string|undefined>;
+    refreshNftMetadata: () => Promise<string|undefined>;
+    incrementSequence: () => void;
+    decrementSequence: () => void;
 }
 
 export const AuctionFactoryContext = createContext<AuctionFactoryContextState>(

@@ -23,15 +23,6 @@
     opacity: 1;
 }
 
-.bid--button:hover,
-.bid--button:active,
-.bid--button:focus,
-.bid--button:disabled {
-    /* background-color: gray !important; */
-    outline: none !important;
-    box-shadow: none !important;
-}
-
 .min--bid--copy {
     padding-top: 0;
     font-size: small;
@@ -40,18 +31,16 @@
 }
 
 .bid--input {
-    font-family: "Roboto Mono", monospace;
     color: black;
     font-size: 1.125rem;
     font-weight: 500;
     height: 3rem !important;
     border: 1px solid #aaa !important;
-    border-radius: 0.25rem !important;
+    border-radius: 5px;
     background-color: white !important;
     outline: none !important;
     box-shadow: none !important;
     padding-left: 1rem !important;
-    width: 50%;
 }
 
 .bid--input:focus {
@@ -61,11 +50,11 @@
 
 .custom--placeholder {
     position: absolute;
-    top: 20%;
+    top: 0.7rem;
     font-weight: bold;
     color: #aaa;
     z-index: 3;
-    right: 50%;
+    left: 14rem;
 }
 
 .bid--button--auction--ended {
@@ -132,4 +121,13 @@
     align-items: stretch;
     width: 100%;
     margin-top: 2rem;
+}
+
+.input--amount--error {
+    color: red;
+    position: absolute;
+    bottom: -1.75rem;
+    left: 0;
+    font-size: 1rem;
+    font-weight: 600;
 }

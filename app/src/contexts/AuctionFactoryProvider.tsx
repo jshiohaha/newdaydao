@@ -35,14 +35,31 @@ export const AuctionFactoryProvider: FC<AuctionFactoryProviderProps> = ({
     const [auctionFactoryAddress, setAuctionFactoryAddress] = useState<
         PublicKey | undefined
     >(undefined);
-
     const [auction, setAuction] = useState<Auction | undefined>();
     const [auctionFactory, setAuctionFactory] = useState<
         AuctionFactory | undefined
     >();
+    const [sequence, setSequence] = useState<BN>(auctionFactory ? auctionFactory.sequence : BN_ZERO);
 
     const connection = useConnection();
     const wallet: WalletContextState = useWallet();
+
+    const _fetchAuction = async (
+        sequence: BN,
+        afAddress: PublicKey
+    ): Promise<any> => {
+        if (!client) return;
+        if (!auctionFactory) return;
+
+        console.log('sequence: ', sequence.toNumber());
+
+        const [addr, _bump] = await client.findAuctionPda(
+            sequence,
+            afAddress
+        );
+
+        return await client.fetchAuction(addr);
+    };
 
     const requestProviderRefresh = () => setStaleToggle(!staleToggle);
 
@@ -81,37 +98,16 @@ export const AuctionFactoryProvider: FC<AuctionFactoryProviderProps> = ({
         if (auctionFactoryAddress) {
             fetchAuctionFactory(auctionFactoryAddress)
                 .then((_auctionFactory) => {
-                    console.log("af: ", _auctionFactory);
-                    console.log(
-                        "sequence: ",
-                        _auctionFactory.sequence.toNumber()
-                    );
-
                     setAuctionFactory(_auctionFactory);
+                    setSequence(_auctionFactory.sequence);
                 })
                 .catch((err) => console.log("load auction factory err: ", err));
         }
     }, [auctionFactoryAddress, staleToggle]);
 
     useEffect(() => {
-        const fetchAuction = async (
-            sequence: BN,
-            afAddress: PublicKey
-        ): Promise<any> => {
-            if (!client) return;
-            if (!auctionFactory) return;
-
-            const [addr, _bump] = await client.findAuctionPda(
-                sequence,
-                afAddress
-            );
-
-            return await client.fetchAuction(addr);
-        };
-
         if (auctionFactoryAddress && auctionFactory) {
-            const currentSequence = auctionFactory.sequence;
-            fetchAuction(currentSequence, auctionFactoryAddress)
+            _fetchAuction(sequence, auctionFactoryAddress)
                 .then((_auction) => {
                     console.log('auction: ', _auction)
                     setAuction(_auction);
@@ -121,57 +117,61 @@ export const AuctionFactoryProvider: FC<AuctionFactoryProviderProps> = ({
                     setAuction(undefined)
                 });
         }
-    }, [auctionFactory === undefined, staleToggle]); // want to re-run when auction factory actually loads; avoid checking equality on whole auction factory object.
+    }, [auctionFactory, sequence, staleToggle]); // want to re-run when auction factory actually loads; avoid checking equality on whole auction factory object.
 
-    // misc functions
-    const refreshNftMetadata = useCallback(async (sequence?: BN): Promise<string|undefined> => {
+    // const fetchAuctionWithSequence = (seq: BN) => {
+    //     if (auctionFactoryAddress && auctionFactory) {
+    //         const currentSequence = auctionFactory.sequence;
+    //         _fetchAuction(seq, auctionFactoryAddress)
+    //             .then((_auction) => {
+    //                 console.log('auction: ', _auction)
+    //                 setAuction(_auction);
+    //             })
+    //             .catch((err: any) => {
+    //                 console.log('auction err: ', err);
+    //                 setAuction(undefined)
+    //             });
+    //     }
+    // }
+
+    const refreshNftMetadata = async (): Promise<string|undefined> => {
         if (!client || !auction || !auction.resource) return;
 
         const md = await getMetadata(auction.resource.toString());
 
         const cachedUri = localStorage.getItem(md);
         if (!cachedUri) {
-            console.log('loading into cache');
-
             const mdPublicKey = new PublicKey(md);
             const accountInfo = await client.connection.getAccountInfo(mdPublicKey);
 
             if (!accountInfo) return;
             const raw_metadata = decodeMetadata(accountInfo.data);
-            console.log('metadatas: ', raw_metadata);
-            localStorage.setItem(md, raw_metadata.data.uri);
 
+            localStorage.setItem(md, raw_metadata.data.uri);
             return raw_metadata.data.uri;
         } else {
-            console.log('reading from cache');
             return cachedUri;
         }
-    }, [auction?.sequence]);
+    };
 
+    // todo: can we return tx hash to display in the ui?
     const createAuction = async (wallet: WalletContextState): Promise<any> => {
         if (!auctionFactory) return;
-
         const userPublickey: PublicKey = getValidatedWalletConnection(wallet);
-
         const _client = await createDefaultAuctionFactory(
             connection.connection,
             wallet
         );
 
-        const sequence: BN = auctionFactory.sequence.add(BN_ONE);
-        console.log("sequence to create next auction: ", sequence.toNumber());
-
+        const _sequence: BN = sequence.add(BN_ONE);
         const [addr, bump] = await _client.findAuctionPda(
-            sequence,
+            _sequence,
             _client.auctionFactory.config.address
         );
 
-        console.log("CFREATE AUCTION PRROVIDER auction: ", addr.toString());
-        console.log("bump: ", bump);
+        await _client.createAuction(addr, bump, _sequence, userPublickey);
 
-        console.log("creating auction with seq: ", sequence.toString());
-
-        await _client.createAuction(addr, bump, sequence, userPublickey);
+        setSequence(_sequence);
     };
 
     const mintNftToAuctionWithRpcCall = async (
@@ -189,8 +189,8 @@ export const AuctionFactoryProvider: FC<AuctionFactoryProviderProps> = ({
         // when minting an NFT to the auction directly after creating it, we need to
         // force refresh the sequence due to async nature of updates.
         const _currentAuctionFactory = await _client.fetchAuctionFactory(_client.auctionFactory.config.address);
-        const sequence: BN = _currentAuctionFactory.sequence;
-        console.log("sequence to create next auction: ", sequence.toNumber());
+        console.log('seq: ', sequence.toNumber());
+        console.log('_currentAuctionFactory seq: ', _currentAuctionFactory.sequence.toNumber());
 
         const mint = Keypair.generate();
         await _client.mintTokenToAuction(
@@ -221,7 +221,7 @@ export const AuctionFactoryProvider: FC<AuctionFactoryProviderProps> = ({
         );
 
         const _amount = new BN(amount);
-        await _client.placeBid(auctionFactory.sequence, _amount, userPublickey);
+        await _client.placeBid(sequence, _amount, userPublickey);
     };
 
     const settleAuction = async (wallet: WalletContextState): Promise<any> => {
@@ -253,12 +253,21 @@ export const AuctionFactoryProvider: FC<AuctionFactoryProviderProps> = ({
         console.log('bidderTokenAccountData bump: ', bidderTokenAccountData?.bump);
 
         await _client.settleAuction(
-            auctionFactory.sequence,
+            sequence,
             bidderTokenAccountData,
             auction.resource,
             userPublickey
         );
     };
+
+    const incrementSequence = (): void => {
+        setSequence(sequence.add(BN_ONE));
+        // set metadata to undefined?
+    }
+
+    const decrementSequence = (): void => {
+        setSequence(sequence.sub(BN_ONE));
+    }
 
     // https://github.com/solana-labs/solana-pay/blob/06775cf15fabe5b8c7600f7aa276e9d59ce9c265/point-of-sale/src/components/contexts/TransactionsProvider.tsx
     return (
@@ -273,6 +282,8 @@ export const AuctionFactoryProvider: FC<AuctionFactoryProviderProps> = ({
                 mintNftToAuctionWithRpcCall,
                 placeBid,
                 settleAuction,
+                incrementSequence,
+                decrementSequence
             }}
         >
             {children}

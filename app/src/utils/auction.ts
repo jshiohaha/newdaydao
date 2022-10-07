@@ -46,16 +46,21 @@ export const convertSolToLamports = (amount: number): BN => {
     return new BN(_amount);
 }
 
-export const getFormattedBidAmount = (amount: BN): string => {
+export const getFormattedBidAmount = (amount: BN, truncate: boolean = true, decimals?: number): string => {
     const amt = convertLamportsToSol(amount.toNumber());
 
-    if (amt < 1e1) return amt.toFixed(3);
-    if (amt < 1e2) return amt.toFixed(2);
-    if (amt < 1e3) return amt.toFixed(1);
-    if (amt >= 1e3 && amt < 1e6) return +(amt / 1e3).toFixed(1) + "K";
-    if (amt >= 1e6 && amt < 1e9) return +(amt / 1e6).toFixed(1) + "M";
-    if (amt >= 1e9 && amt < 1e12) return +(amt / 1e9).toFixed(1) + "B";
-    if (amt >= 1e12) return +(amt / 1e12).toFixed(1) + "T";
+    if (amt < 1e1) return _getFormattedAmount(amt, 1e0, '', 3, false, decimals); // 0-9 => 3 decimals
+    if (amt < 1e2) return _getFormattedAmount(amt, 1e1, '', 3, false, decimals); // 11-99 => 2 decimals
+    if (amt < 1e3) return _getFormattedAmount(amt, 1e2, '', 3, false, decimals); // 100-999 => 1 decimal
+    if (amt >= 1e3 && amt < 1e6) return _getFormattedAmount(amt, 1e3, 'K', 3, truncate, decimals); // 1,000-9,999 => 1.001K
+    if (amt >= 1e6 && amt < 1e9) return _getFormattedAmount(amt, 1e6, 'M', 3, truncate, decimals); // 1,000,000-9,999,999 => 1.001M
+    if (amt >= 1e9 && amt < 1e12) _getFormattedAmount(amt, 1e9, 'B', 3, truncate, decimals); // 1.001B
+    if (amt >= 1e12) return _getFormattedAmount(amt, 1e12, 'T', 3, truncate, decimals); // 1.001T
 
     return `${amt}`;
+}
+
+const _getFormattedAmount = (n: number, divisor: number, valueToAppend: string, digits: number, truncate: boolean, decimals?: number): string => {
+    const value: string = (truncate ? n / divisor : n).toFixed(decimals ? decimals : digits);
+    return truncate ? value + valueToAppend : value;
 }

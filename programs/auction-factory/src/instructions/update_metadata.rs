@@ -1,21 +1,23 @@
 use {
-    anchor_lang::prelude::*,
-    mpl_token_metadata::instruction::update_metadata_accounts_v2,
-    solana_program::program::invoke_signed
+    anchor_lang::prelude::*, mpl_token_metadata::instruction::update_metadata_accounts_v2,
+    solana_program::program::invoke_signed,
 };
 
 #[derive(Accounts)]
 pub struct UpdateMetadata<'info> {
+    /// CHECK: verified via cpi in the token program
     #[account(mut)]
     pub metadata: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the token program
     pub update_authority: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the token program
     #[account(address = spl_token_metadata::id())]
     pub token_metadata_program: AccountInfo<'info>,
 }
 
 pub fn handle<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, UpdateMetadata<'info>>,
-) -> ProgramResult {
+) -> Result<()> {
     invoke_signed(
         &update_metadata_accounts_v2(
             *ctx.accounts.token_metadata_program.key,

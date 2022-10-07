@@ -1,21 +1,12 @@
 use {
-    crate::{
-        constant::MAX_BIDS_TO_RECORD, structs::auction_factory::AuctionFactoryData,
-        util::general::get_current_timestamp, util::vec::update_vec,
-    },
+    crate::{state::auction_factory::AuctionFactoryData, util::general::get_current_timestamp},
     anchor_lang::prelude::*,
 };
 
-#[repr(C)]
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default, PartialEq, Debug)]
-pub struct Bid {
-    // pubkey of bidder
-    pub bidder: Pubkey,
-    // timestamp at which bid was submitted
-    pub updated_at: u64,
-    // bid amount
-    pub amount: u64,
-}
+// flow:
+// 1. init auctions - set bids to 0 (no context change)
+// 2. place bid - 2 accounts - current bid + next bid
+// 2. settle auction - find winning bid account + winning bidder and pass that in?
 
 #[account]
 #[derive(Default)]
@@ -33,25 +24,43 @@ pub struct Auction {
     pub finalized_end_time: u64,
     // Whether ofr not the auction has been settled
     pub settled: bool,
-    // current highest bid amount
-    pub amount: u64,
-    // address of the current highest bid, nullable if no bid
-    pub bidder: Pubkey,
-    // epoch time of the most recent bid was placed. used to keep track of auction timing.
-    pub bid_time: u64,
     // address of the resource being auctioned; should not be null.
     pub resource: Option<Pubkey>,
-    // vec of submitted bids. some PDA for each bid tied to an auction could enable tracking an ininite
-    // number of bids. but, that poses the question — why care about storing that much data? this would
-    // also require each bidder to create another account for each bid submitted. seems like a waste.
-    // given the current size of an auction, we can extend the bid vec to ~200 bids before hitting the
-    // limit for solana account size.
-    pub bids: Vec<Bid>,
+    // === bids ===
+    // number of bids on the current auction, used to compute bid PDA
+    pub num_bids: u64,
+    // note: we don't store the curernt bid because we can simply derive it
+
+    // =================================
+
     // token mint address for the SPL token being used to bid; default to SOL. creating an auction where
     // bids are demonited in an SPL token means that all bids must use that SPL token.
     // ancillary note: there is more work to be done before SPL tokens could be used for auctions.
     // pub token_mint: Option<Pubkey>,
 }
+
+// auction struct sizing for account init
+pub const AUCTION_ACCOUNT_SPACE: usize =
+    // discriminator
+    8 +
+    // bump
+    1 +
+    // sequence
+    8 +
+    // authority
+    32 +
+    // start_time
+    8 +
+    // end_time
+    8 +
+    // finalized_end_time
+    8 +
+    // settled
+    1 +
+    // resource
+    1 + 32 +
+    // num_bids
+    8;
 
 impl Auction {
     pub fn init(
@@ -68,9 +77,8 @@ impl Auction {
         self.start_time = current_timestamp;
         self.end_time = current_timestamp + factory_data.duration;
         self.settled = false;
-        self.amount = 0;
         self.resource = None;
-        self.bids = Vec::new();
+        self.num_bids = 0;
     }
 
     pub fn add_resource(&mut self, resource: Pubkey) {
@@ -84,20 +92,10 @@ impl Auction {
         self.finalized_end_time = current_timestamp;
     }
 
-    pub fn update_auction_with_bid(&mut self, amount: u64, bidder: Pubkey) -> ProgramResult {
-        let current_timestamp = get_current_timestamp().unwrap();
-
-        self.amount = amount;
-        self.bidder = bidder;
-        self.bid_time = current_timestamp;
-
-        let bid = Bid {
-            bidder: bidder,
-            updated_at: current_timestamp,
-            amount: amount,
-        };
-
-        update_vec(&mut self.bids, bid, MAX_BIDS_TO_RECORD)?;
+    // todo: update as new functionality is needed?
+    pub fn update_auction_after_bid(&mut self) -> Result<()> {
+        // increment by 1
+        self.num_bids = self.num_bids + 1;
 
         // feat: this is where we can extend the auction end time if someone
         // submits a winning bid within n time of original ending. pull extension from somewhere else.
@@ -109,40 +107,3 @@ impl Auction {
         Ok(())
     }
 }
-
-// auction account struct sizing for account init
-pub const BID_SPACE: usize =
-    // bidder
-    32 +
-    // updated_at
-    8 +
-    // bid amount
-    8;
-
-pub const AUCTION_ACCOUNT_SPACE: usize =
-    // discriminator
-    8 +
-    // bump
-    1 +
-    // sequence
-    8 +
-    // authority
-    32 +
-    // start_time
-    8 +
-    // end_tiem
-    8 +
-    // finalized_end_time
-    8 +
-    // settled
-    1 +
-    // amount
-    8 +
-    // bidder
-    32 +
-    // bid_time
-    8 +
-    // resource
-    1 + 32 +
-    // bids
-    4 + (BID_SPACE * MAX_BIDS_TO_RECORD);

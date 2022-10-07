@@ -39,12 +39,8 @@ const AuctionAction = () => {
             return <SettleAuction />;
         }
 
-        // return <SettleAuction />;
-        // return <CreateAuction />;
-
         // placeholder button
         return <></>;
-        // TODO: does this cause component to refresh in case of refresh?
     }, [auctionFactory, auction]);
 
     return renderAuctionAction();

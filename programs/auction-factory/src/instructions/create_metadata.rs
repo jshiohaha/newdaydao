@@ -1,22 +1,26 @@
 use {
-    crate::structs::metadata::MetadataInfo,
-    anchor_lang::prelude::*,
-    anchor_spl::token::Token,
+    crate::state::metadata::MetadataInfo, anchor_lang::prelude::*, anchor_spl::token::Token,
     mpl_token_metadata::instruction::create_metadata_accounts_v2,
-    solana_program::program::invoke_signed
+    solana_program::program::invoke_signed,
 };
 
 #[derive(Accounts)]
 pub struct CreateMetadata<'info> {
+    /// CHECK: verified via cpi in the metadata program
     pub payer: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the metadata program
     // the following accounts aren't using anchor macros because CPI invocation
     // will do the required validations.
     pub metadata: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the metadata program
     // mint address the token with which metadata will be associated
     pub mint: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the metadata program
     pub mint_authority: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the metadata program
     // account with authority to update metadata, if mutable
     pub update_authority: AccountInfo<'info>,
+    /// CHECK: verified via cpi in the metadata program
     #[account(address = spl_token_metadata::id())]
     pub token_metadata_program: UncheckedAccount<'info>,
     pub token_program: Program<'info, Token>,
@@ -27,7 +31,7 @@ pub struct CreateMetadata<'info> {
 pub fn handle<'a, 'b, 'c, 'info>(
     ctx: CpiContext<'a, 'b, 'c, 'info, CreateMetadata<'info>>,
     metadata_info: MetadataInfo,
-) -> ProgramResult {
+) -> Result<()> {
     invoke_signed(
         &create_metadata_accounts_v2(
             *ctx.accounts.token_metadata_program.key,

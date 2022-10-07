@@ -12,7 +12,7 @@ import "./AuctionInfo.css";
 const AuctionInfo = () => {
     const {
         auction,
-        refreshNftMetadata
+        refreshNftMetadata,
     } = useAuctionFactory();
     const [metadataUri, setMetadataUri] = useState<string|undefined>(undefined);
     const [sequence, setSequence] = useState<number>(0);
@@ -25,15 +25,15 @@ const AuctionInfo = () => {
 
         if (!auction) return;
 
+
         loadMetadata()
-            .then(uri => {
-                setMetadataUri(uri);
-            })
+            .then(uri => setMetadataUri(uri))
             .catch(err => console.log(err));
 
+        setMetadataUri("");
         setEndTime(auction.endTime.toNumber());
         setSequence(auction.sequence.toNumber());
-    }, [auction && auction.sequence]);
+    }, [auction?.sequence]);
 
     return (
         <div className="auction--display--wrapper">
@@ -42,7 +42,7 @@ const AuctionInfo = () => {
             <div className="auction--info--wrapper">
                 <div className="auction--info--container">
                     <h1 className="auction--title">{sequence === 0 ? 'No auctions yet' : `Auction ${sequence}`}</h1>
-                    <Countdown endTime={endTime} />
+                    {/* <Countdown endTime={endTime} /> */}
 
                     <AuctionDetails />
                 </div>

@@ -1,13 +1,14 @@
 import { useState } from "react";
+import { Bid, BN_ZERO } from "@auction-factory/sdk";
 
 import BidDetails from "../BidDetails";
 import AuctionAction from "../AuctionAction";
 import BidHistory from "../BidHistory";
 
+import { isAuctionLive } from "../../utils/auction";
 import { useAuctionFactory } from "../../hooks/useAuctionFactory";
 
 import "./BidInfo.css";
-import { Bid, BN_ZERO } from "@auction-factory/sdk";
 
 const BidInfo = () => {
     const { auction, auctionFactory } = useAuctionFactory();
@@ -60,8 +61,19 @@ const BidInfo = () => {
                     </>
                 ) : (
                     <span className="no--bid--text">
-                        No one has bid on this auction yet. Once a valid bid has
-                        been placed, you will see the leading bid info.
+                        {isAuctionLive(auction)
+                            ? (
+                                <>
+                                    No one has bid on this auction yet. Once a valid bid has been placed, you will see the leading bid info.
+                                </>
+                            ) : (
+                                <>
+                                    No one bid on this NFT during the auction. It was burned when the auction was settled.
+                                    You can verify this is true by looking at the token's transaction history.
+                                </>
+                            )
+                        }
+
                     </span>
                 )}
 

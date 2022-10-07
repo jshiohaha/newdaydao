@@ -11,9 +11,6 @@ pub const URI_CONFIG_SEED: &str = "config";
 // auction factory
 pub const AUCTION_FACTORY_SEED_LEN: usize = 5;
 
-// auction
-pub const MAX_BIDS_TO_RECORD: usize = 10;
-
 // config
 pub const CONFIG_SEED_LEN: usize = 5;
 pub const MAX_URI_LENGTH: usize = 75;

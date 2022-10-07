@@ -15,7 +15,7 @@ export enum AuctionDisplayTab {
 }
 
 const AuctionDetails = () => {
-    const { auction, auctionFactory } = useAuctionFactory();
+    const { auctionFactory } = useAuctionFactory();
     const [tab, setTab] = useState<AuctionDisplayTab>(AuctionDisplayTab.BIDS);
 
     const onTabChange = (e: any) => {

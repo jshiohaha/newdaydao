@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import toast from "react-hot-toast";
 
 import { useAuctionFactory } from "../../hooks/useAuctionFactory";
 import "./SettleAuction.css";
 import BeatLoader from "react-spinners/BeatLoader";
-import { walletIsConnected } from "../../utils/util";
+import { publishToastMessage, walletIsConnected } from "../../utils/util";
+import { LOADING_COLOR, LOADING_SPEED_MULTIPLIER, LOADING_STATE_SIZE, OVERRIDE } from "../../utils/constants";
 
 const SETTLE_AUCTION_TEXT = "Settle Auction";
-const loadingColor = "#ffffff";
-// Can be a string as well. Need to ensure each key-value pair ends with ;
-const override = 'display: block; margin: 0 auto; border-color: red;';
 
 const SettleAuction = () => {
-    const { auction, settleAuction, requestProviderRefresh } = useAuctionFactory();
+    const { auction, settleAuction, requestProviderRefresh } =
+        useAuctionFactory();
     const wallet = useWallet();
 
     const [settleAuctionButtonContent, _setSettleAuctionButtonContent] =
@@ -24,7 +24,13 @@ const SettleAuction = () => {
         if (!wallet.publicKey) throw new Error("wallet is not connected");
 
         setIsLoading(true);
-        await settleAuction(wallet);
+
+        try {
+            await settleAuction(wallet);
+        } catch (e: any) {
+            publishToastMessage(e.message);
+        }
+
         setIsLoading(false);
         requestProviderRefresh();
     };
@@ -33,12 +39,20 @@ const SettleAuction = () => {
         <>
             <div className="settle--auction--input--group">
                 <button
-                    className={`settle--auction--button ${!walletIsConnected(wallet) && 'wallet--disconnected'}`}
+                    className={`settle--auction--button ${
+                        !walletIsConnected(wallet) && "wallet--disconnected"
+                    }`}
                     onClick={settleAuctionHandler}
                     disabled={isLoading || !walletIsConnected(wallet)}
                 >
                     {isLoading ? (
-                        <BeatLoader color={loadingColor} loading={isLoading} css={override} size={10} speedMultiplier={0.75} />
+                        <BeatLoader
+                            color={LOADING_COLOR}
+                            loading={isLoading}
+                            css={OVERRIDE}
+                            size={LOADING_STATE_SIZE}
+                            speedMultiplier={LOADING_SPEED_MULTIPLIER}
+                        />
                     ) : (
                         <>{settleAuctionButtonContent}</>
                     )}

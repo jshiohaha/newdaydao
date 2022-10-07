@@ -1,14 +1,15 @@
 import { WalletContextState } from "@solana/wallet-adapter-react";
 import * as web3 from "@solana/web3.js";
 import BN from "bn.js";
+import toast from "react-hot-toast";
 
 export const sleep = (time: number) => {
     return new Promise((resolve) => setTimeout(resolve, time));
 }
 
-export const getNow = () => {
-    const time = new Date().getTime() / 1000;
-    return Math.round(time);
+export const getNow = (truncate?: boolean) => {
+    const time = new Date().getTime();
+    return Math.round(truncate ? time / 1000 : time);
 };
 
 export const timeSince = (date: number) => {
@@ -88,16 +89,30 @@ export const toDateSubString = (d: Date) => {
     const month = getMonth(d.getMonth());
     const day = d.getDate();
     const hour = d.getHours();
-
-    const _hour = (hour >= 12) ? hour - 12 : hour;
     const min = d.getMinutes();
     var ampm = (hour >= 12) ? "PM" : "AM";
 
-    return `${month} ${day} at ${_hour}:${min} ${ampm}`;
+    const _hour = (hour >= 12)
+        ? hour === 0 || hour === 12 ? 12 : hour - 12 // handle noon and midnight
+        : hour;
+    const _min = min < 10 ? min.toString().padStart(2, '0') : min.toString();
+
+    console.log(`hour ${hour} -> _hour ${_hour}`);
+    console.log(`min ${min} -> _min ${_min}`);
+
+    return `${month} ${day} at ${_hour}:${_min} ${ampm}`;
 }
 
 export const timestampToDateString = (timestamp: BN | number) => {
     const _timestamp = typeof timestamp === 'number' ? timestamp : timestamp.toNumber() * 1000;
     console.log('date: ', new Date(_timestamp).toString());
     return toDateSubString(new Date(_timestamp));
+}
+
+export const publishToastMessage = (msg: string): void => {
+    if (!msg.includes("User rejected the request")) {
+        toast(msg, {
+            icon: "🧨",
+        });
+    }
 }

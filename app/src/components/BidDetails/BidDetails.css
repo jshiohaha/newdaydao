@@ -2,7 +2,7 @@
     border: 2px solid #EBEBEB;
     border-radius: 0.5rem;
     padding: 0.625rem 0.75rem 0.5rem 0.75rem;
-    text-align: center;
+    /* text-align: center; */
     font-size: 1.25rem;
     font-weight: 500;
     transition: 0.3s;

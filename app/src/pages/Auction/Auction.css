@@ -1,7 +1,72 @@
-.content--container {
-    width: max-content;
-    margin: auto;
-    display: block;
+.auction--info--wrapper {
+    background-color: #FFF;
+    border-radius: 0.5rem;
+    border: 0.15rem solid #000;
+    height: 35rem;
+    width: 45rem;
     position: relative;
-    margin-top: 3rem;
+    top: -3rem;
+    left: -5rem;
 }
+
+.auction--info--container {
+    padding-left: 8rem;
+    margin-top: 1.25rem;
+}
+
+.auction--title {
+    font-size: 3rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.divider {
+    border-top: #f3f3f3;
+    left: 0;
+    margin-left: 0;
+}
+
+.auction--display--wrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    position: relative;
+    margin: 3rem auto 0 auto;
+    width: max-content;
+}
+
+.auction--navigation--wrapper {
+    height: max-content;
+    width: max-content;
+    position: absolute;
+    top: -1rem;
+    right: 7rem;
+    z-index: 100;
+}
+
+.auction--navigation {
+    -webkit-appearance: none;
+    padding: 0;
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    background-size: contain;
+    background-repeat: no-repeat;
+    font-size: large;
+    border-radius: 50%;
+    color: #fff;
+    background-color: #151c3b;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.navigation--disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.navigation--left {
+    margin-right: 1rem;
+}
+
