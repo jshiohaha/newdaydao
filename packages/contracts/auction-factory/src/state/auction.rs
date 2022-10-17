@@ -1,7 +1,6 @@
-use {
-    crate::{state::auction_factory::AuctionFactoryData, util::general::get_current_timestamp},
-    anchor_lang::prelude::*,
-};
+use crate::{state::auction_factory::AuctionFactoryData, util::general::get_current_timestamp};
+use anchor_lang::prelude::*;
+use solana_program::borsh::try_from_slice_unchecked;
 
 // flow:
 // 1. init auctions - set bids to 0 (no context change)
@@ -61,6 +60,11 @@ pub const AUCTION_ACCOUNT_SPACE: usize =
     1 + 32 +
     // num_bids
     8;
+
+pub fn to_auction(account_info: &AccountInfo) -> Auction {
+    // .copy_from_slice(&[0u8; 8]);
+    try_from_slice_unchecked(&account_info.data.borrow()[0..8]).unwrap()
+}
 
 impl Auction {
     pub fn init(

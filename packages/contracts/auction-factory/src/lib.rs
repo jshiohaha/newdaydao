@@ -14,7 +14,7 @@ use {
     error::ErrorCode,
     solana_program::msg,
     state::{
-        auction::Auction,
+        auction::{to_auction, Auction},
         auction_factory::{AuctionFactory, AuctionFactoryData},
         bid::to_bid,
     },
@@ -42,35 +42,46 @@ pub mod auction_factory {
         Ok(())
     }
 
-    pub fn create_first_auction(
-        ctx: Context<CreateFirstAuction>,
+    pub fn create_auction(
+        ctx: Context<CreateAuction>,
         _seed: String,
-        _sequence: u64,
+        current_auction_bump: u8,
     ) -> Result<()> {
-        let auction_bump: u8 = *ctx.bumps.get("auction").unwrap();
-        create_auction_helper(
-            &mut ctx.accounts.auction_factory,
-            auction_bump,
-            &mut ctx.accounts.auction,
-            None,
-        )?;
+        let auction_factory = &mut ctx.accounts.auction_factory;
+        let current_sequence = auction_factory.sequence;
+        let current_auction = &ctx.accounts.current_auction;
 
-        Ok(())
-    }
+        verify::verify_auction_factory_is_active(&auction_factory)?;
 
-    pub fn create_next_auction(
-        ctx: Context<CreateNextAuction>,
-        _seed: String,
-        _current_seq: u64,
-        _next_seq: u64,
-    ) -> Result<()> {
+        if current_sequence > 0 {
+            // todo: verify supplied current_auction account key
+            verify::verify_auction_address_for_factory(
+                auction_factory.key(),
+                current_sequence,
+                current_auction.key(),
+                current_auction_bump,
+            )?;
+
+            let current_auction = to_auction(&current_auction.to_account_info());
+            // ensure settled auction before creating a new auction, if we are past the first auction
+            verify::verify_current_auction_is_over(&current_auction)?;
+        }
+
+        let next_auction = &mut ctx.accounts.next_auction;
         let next_auction_bump: u8 = *ctx.bumps.get("next_auction").unwrap();
-        create_auction_helper(
-            &mut ctx.accounts.auction_factory,
+
+        let next_sequence = current_sequence
+            .checked_add(1)
+            .ok_or(ErrorCode::NumericalOverflowError)?;
+
+        verify::verify_auction_address_for_factory(
+            auction_factory.key(),
+            next_sequence,
+            next_auction.key(),
             next_auction_bump,
-            &mut ctx.accounts.next_auction,
-            Some(&mut ctx.accounts.current_auction),
         )?;
+
+        instructions::create_auction::handle(next_auction_bump, next_auction, auction_factory)?;
 
         Ok(())
     }
@@ -84,7 +95,6 @@ pub mod auction_factory {
         sequence: u64,
     ) -> Result<()> {
         let auction_factory_bump: u8 = *ctx.bumps.get("auction_factory").unwrap();
-        let auction_bump: u8 = *ctx.bumps.get("auction").unwrap();
 
         // i think mint & create metadata (NFT) logic could be moved to a separate program & invoked via CPI.
         // that would decouple the auction from NFT logic. this option is def more attractive in the case that
@@ -94,10 +104,12 @@ pub mod auction_factory {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
         let current_sequence = ctx.accounts.auction_factory.sequence;
+        let auction_bump: u8 = *ctx.bumps.get("auction").unwrap();
         verify::verify_auction_address_for_factory(
-            current_sequence,
             ctx.accounts.auction_factory.key(),
+            current_sequence,
             ctx.accounts.auction.key(),
+            auction_bump,
         )?;
 
         verify::verify_auction_resource_dne(&ctx.accounts.auction)?;
@@ -160,17 +172,19 @@ pub mod auction_factory {
         _seed: String,
         _sequence: u64,
         amount: u64,
+        current_bid_bump: u8,
     ) -> Result<()> {
         verify::verify_auction_factory_is_active(&ctx.accounts.auction_factory)?;
 
+        let auction_bump: u8 = *ctx.bumps.get("auction").unwrap();
         verify::verify_auction_address_for_factory(
-            ctx.accounts.auction_factory.sequence,
             ctx.accounts.auction_factory.key(),
+            ctx.accounts.auction_factory.sequence,
             ctx.accounts.auction.key(),
+            auction_bump,
         )?;
 
         let current_bid_account_info = ctx.accounts.current_bid.to_account_info();
-        let current_bid_bump: u8 = *ctx.bumps.get("current_bid").unwrap();
 
         let next_bid_account_info = ctx.accounts.next_bid.to_account_info();
         let next_bump: u8 = *ctx.bumps.get("next_bid").unwrap();
@@ -224,14 +238,15 @@ pub mod auction_factory {
     }
 
     pub fn settle_auction(ctx: Context<SettleAuction>, _seed: String, sequence: u64) -> Result<()> {
-        let auction_bump: u8 = *ctx.bumps.get("auction").unwrap();
         let bid_account_bump: u8 = *ctx.bumps.get("bid").unwrap();
 
         // avoid auction factory is active check. users should have option to settle current auction regardless of auction factory status.
+        let auction_bump: u8 = *ctx.bumps.get("auction").unwrap();
         verify::verify_auction_address_for_factory(
-            ctx.accounts.auction_factory.sequence,
             ctx.accounts.auction_factory.key(),
+            ctx.accounts.auction_factory.sequence,
             ctx.accounts.auction.key(),
+            auction_bump,
         )?;
         verify::verify_auction_can_be_settled(&ctx.accounts.auction)?;
         verify::verify_auction_has_resource(&ctx.accounts.auction)?;
@@ -401,39 +416,4 @@ pub mod auction_factory {
 
         Ok(())
     }
-}
-
-/// ====================================================================
-/// ixn helper function to  until i  can figure out how to combine   ///
-/// create 0...n auctions in the fn                                  ///
-/// ====================================================================
-
-pub fn create_auction_helper(
-    auction_factory: &mut Account<AuctionFactory>,
-    next_auction_bump: u8,
-    next_auction: &mut Account<Auction>,
-    current_auction: Option<&mut Account<Auction>>,
-) -> Result<()> {
-    verify::verify_auction_factory_is_active(&auction_factory)?;
-
-    let next_sequence = auction_factory
-        .sequence
-        .checked_add(1)
-        .ok_or(ErrorCode::NumericalOverflowError)?;
-    verify::verify_auction_address_for_factory(
-        next_sequence,
-        auction_factory.key(),
-        next_auction.key(),
-    )?;
-
-    if let Some(curr_auction) = current_auction {
-        // ensure settled auction before creating a new auction, if we are past the first auction
-        verify::verify_current_auction_is_over(&curr_auction)?;
-    } else {
-        verify::verify_auction_factory_for_first_auction(&auction_factory)?;
-    }
-
-    instructions::create_auction::handle(next_auction_bump, next_auction, auction_factory)?;
-
-    Ok(())
 }

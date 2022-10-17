@@ -57,13 +57,13 @@ pub struct CreateTokenMint<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-// todo: consolidate create auction into single IX
 #[derive(Accounts)]
 #[instruction(
     seed: String,
-    sequence: u64
+    // manual seed is required here because we don't validate PDA in anchor context
+    current_auction_bump: u8
 )]
-pub struct CreateFirstAuction<'info> {
+pub struct CreateAuction<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
     #[account(
@@ -76,58 +76,25 @@ pub struct CreateFirstAuction<'info> {
         constraint = auction_factory.to_account_info().owner == program_id,
     )]
     pub auction_factory: Account<'info, AuctionFactory>,
+    /// CHECK: verify in IX, possibly garbage if no current auction
+    // #[account(
+    //     mut,
+    //     seeds = [
+    //         AUX_SEED.as_bytes(),
+    //         auction_factory.key().as_ref(),
+    //         auction_factory.sequence.to_string().as_bytes()
+    //     ],
+    //     bump,
+    //     constraint = current_auction.to_account_info().owner == program_id,
+    // )]
+    pub current_auction: AccountInfo<'info>,
+    /// safe to init as normal PDA because we will use this new auction account if all checks pass
     #[account(
         init,
         seeds = [
             AUX_SEED.as_bytes(),
             auction_factory.key().as_ref(),
-            sequence.to_string().as_bytes()
-        ],
-        bump,
-        payer = payer,
-        space = AUCTION_ACCOUNT_SPACE,
-        constraint = auction.to_account_info().owner == program_id,
-    )]
-    pub auction: Account<'info, Auction>,
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-#[instruction(
-    seed: String,
-    current_seq: u64,
-    next_seq: u64
-)]
-pub struct CreateNextAuction<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    #[account(
-        mut,
-        seeds = [
-            AUX_FACTORY_SEED.as_bytes(),
-            seed.as_bytes(),
-        ],
-        bump,
-        constraint = auction_factory.to_account_info().owner == program_id,
-    )]
-    pub auction_factory: Account<'info, AuctionFactory>,
-    #[account(
-        mut,
-        seeds = [
-            AUX_SEED.as_bytes(),
-            auction_factory.key().as_ref(),
-            current_seq.to_string().as_bytes()
-        ],
-        bump,
-        constraint = current_auction.to_account_info().owner == program_id,
-    )]
-    pub current_auction: Account<'info, Auction>,
-    #[account(
-        init,
-        seeds = [
-            AUX_SEED.as_bytes(),
-            auction_factory.key().as_ref(),
-            next_seq.to_string().as_bytes()
+            (auction_factory.sequence + 1).to_string().as_bytes()
         ],
         bump,
         payer = payer,
@@ -203,7 +170,9 @@ pub struct SupplyResource<'info> {
 #[instruction(
     seed: String,
     sequence: u64,
-    amount: u64
+    amount: u64,
+    // manual seed is required here because we don't validate PDA in anchor context
+    current_bid_bump: u8
 )]
 pub struct PlaceBid<'info> {
     #[account(mut)]

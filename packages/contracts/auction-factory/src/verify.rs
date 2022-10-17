@@ -16,14 +16,16 @@ use {
 };
 
 pub fn verify_auction_address_for_factory(
-    sequence: u64,
     auction_factory: Pubkey,
-    current_auction: Pubkey,
+    sequence: u64,
+    expected_auction: Pubkey,
+    expected_bump: u8,
 ) -> Result<()> {
     // grab the derived current auction address and verify it matches the supplied address
-    let (current_auction_address, _bump) = get_auction_account_address(sequence, auction_factory);
+    let (actual_auction_address, actual_bump) =
+        get_auction_account_address(sequence, auction_factory);
 
-    if current_auction != current_auction_address {
+    if expected_auction != actual_auction_address || expected_bump != actual_bump {
         return Err(ErrorCode::AuctionAddressMismatch.into());
     }
 
@@ -39,7 +41,7 @@ pub fn verify_auction_has_resource(auction: &Account<Auction>) -> Result<()> {
     }
 }
 
-pub fn verify_current_auction_is_over(auction: &Account<Auction>) -> Result<()> {
+pub fn verify_current_auction_is_over(auction: &Auction) -> Result<()> {
     let current_timestamp: u64 = get_current_timestamp().unwrap();
 
     // if not settled, auction is live. must be settled before creating a new auction.
@@ -76,16 +78,6 @@ pub fn verify_auction_resource_dne(auction: &Account<Auction>) -> Result<()> {
 pub fn verify_treasury(auction_factory: &Account<AuctionFactory>, treasury: Pubkey) -> Result<()> {
     if auction_factory.treasury != treasury {
         return Err(ErrorCode::TreasuryMismatch.into());
-    }
-
-    Ok(())
-}
-
-pub fn verify_auction_factory_for_first_auction(
-    auction_factory: &Account<AuctionFactory>,
-) -> Result<()> {
-    if auction_factory.sequence > 0 {
-        return Err(ErrorCode::AuctionsAlreadyInitialized.into());
     }
 
     Ok(())
