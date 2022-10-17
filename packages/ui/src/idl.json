@@ -1,0 +1,369 @@
+{
+    "version": "0.1.0",
+    "name": "auction_factory",
+    "instructions": [
+        {
+            "name": "initializeAuctionFactory",
+            "accounts": [
+                {
+                    "name": "payer",
+                    "isMut": false,
+                    "isSigner": true
+                },
+                {
+                    "name": "authority",
+                    "isMut": false,
+                    "isSigner": true
+                },
+                {
+                    "name": "auctionFactory",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "bump",
+                    "type": "u8"
+                },
+                {
+                    "name": "data",
+                    "type": {
+                        "defined": "AuctionFactoryData"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "initializeAuction",
+            "accounts": [
+                {
+                    "name": "authority",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "payer",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "auctionFactory",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "auction",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "bump",
+                    "type": "u8"
+                },
+                {
+                    "name": "sequence",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "createNextAuction",
+            "accounts": [
+                {
+                    "name": "authority",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "payer",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "auctionFactory",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "currentAuction",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "nextAuction",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "bump",
+                    "type": "u8"
+                },
+                {
+                    "name": "sequence",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "settleAuction",
+            "accounts": [
+                {
+                    "name": "payer",
+                    "isMut": false,
+                    "isSigner": true
+                },
+                {
+                    "name": "authority",
+                    "isMut": true,
+                    "isSigner": true
+                },
+                {
+                    "name": "auctionFactory",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "auction",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "amount",
+                    "type": "u64"
+                }
+            ]
+        },
+        {
+            "name": "placeBid",
+            "accounts": [
+                {
+                    "name": "bidder",
+                    "isMut": false,
+                    "isSigner": true
+                },
+                {
+                    "name": "leadingBidder",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "auctionFactory",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "auction",
+                    "isMut": true,
+                    "isSigner": false
+                },
+                {
+                    "name": "systemProgram",
+                    "isMut": false,
+                    "isSigner": false
+                }
+            ],
+            "args": [
+                {
+                    "name": "amount",
+                    "type": "u64"
+                }
+            ]
+        }
+    ],
+    "accounts": [
+        {
+            "name": "Auction",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "bump",
+                        "type": "u8"
+                    },
+                    {
+                        "name": "sequence",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "authority",
+                        "type": "publicKey"
+                    },
+                    {
+                        "name": "startTime",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "endTime",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "finalizedEndTime",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "settled",
+                        "type": "bool"
+                    },
+                    {
+                        "name": "amount",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "bidder",
+                        "type": "publicKey"
+                    },
+                    {
+                        "name": "bidTime",
+                        "type": "u64"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "AuctionFactory",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "bump",
+                        "type": "u8"
+                    },
+                    {
+                        "name": "sequence",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "authority",
+                        "type": "publicKey"
+                    },
+                    {
+                        "name": "isActive",
+                        "type": "bool"
+                    },
+                    {
+                        "name": "data",
+                        "type": {
+                            "defined": "AuctionFactoryData"
+                        }
+                    },
+                    {
+                        "name": "initializedAt",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "activeSince",
+                        "type": "u64"
+                    }
+                ]
+            }
+        }
+    ],
+    "types": [
+        {
+            "name": "AuctionFactoryData",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "timeBuffer",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "minBidPercentageIncrease",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "minReservePrice",
+                        "type": "u64"
+                    },
+                    {
+                        "name": "duration",
+                        "type": "u64"
+                    }
+                ]
+            }
+        }
+    ],
+    "errors": [
+        {
+            "code": 6000,
+            "name": "InactiveAuctionFactory",
+            "msg": "Activate auction factory before performing such action."
+        },
+        {
+            "code": 6001,
+            "name": "InactiveAuction",
+            "msg": "Auction is not in a state to perform such action."
+        },
+        {
+            "code": 6002,
+            "name": "UnsettledAuction",
+            "msg": "Must settle any ongoing auction before creating a new auction."
+        },
+        {
+            "code": 6003,
+            "name": "InvalidBidAmount",
+            "msg": "Bid must be a non-negative, non-zero amount. Bid must also beat previous bid by some percent."
+        },
+        {
+            "code": 6004,
+            "name": "NoActiveAuction",
+            "msg": "Cannot modify an auction that does not exist."
+        },
+        {
+            "code": 6005,
+            "name": "NotAuthorized",
+            "msg": "Account is not authorized to take such action."
+        },
+        {
+            "code": 6006,
+            "name": "AuctionAddressMismatch",
+            "msg": "Auction address mismatch."
+        },
+        {
+            "code": 6007,
+            "name": "AuctionsAlreadyInitialized",
+            "msg": "Initialize auctions can only be called once."
+        },
+        {
+            "code": 6008,
+            "name": "PublicKeyMismatch",
+            "msg": "Public key mismatch"
+        },
+        {
+            "code": 6009,
+            "name": "MiscError",
+            "msg": "Rando error"
+        }
+    ],
+    "metadata": {
+        "address": "EBTuRco9ht6f2R27RGbKHVcoz31n3fMDHFSEvecibZDU"
+    }
+}

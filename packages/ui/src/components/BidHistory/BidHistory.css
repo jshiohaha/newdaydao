@@ -1,0 +1,59 @@
+.bid--history--background {
+    margin: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    display: none;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+}
+
+.is--visible {
+    display: block !important;
+}
+
+.bid--history--wrapper {
+    background: #FFF;
+    margin: auto;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+
+    border-radius: 8px;
+    max-width: 480px;
+    height: 380px;
+
+    background: #FFF none repeat scroll 0% 0%;
+    border-radius: 10px;
+    box-shadow: rgb(0, 0, 0) 3px 10px 18px;
+    padding: 1rem;
+    z-index: 100;
+}
+
+.bid--history--title,
+.bid--history--descriptor {
+    margin: 0;
+}
+
+.bid--history--descriptor {
+    font-weight: 400;
+    font-size: 1.125rem;
+}
+
+.bid--history--items {
+    height: 80%;
+    overflow-y: scroll;
+    outline: medium none currentcolor;
+    background: transparent none repeat scroll 0;
+    list-style: none;
+    padding-left: 0;
+}
+
+.bid--item {
+    position: relative;
+    margin-bottom: 0.5rem;
+}

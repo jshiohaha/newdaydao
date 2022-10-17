@@ -1,0 +1,22 @@
+.proof--of--header {
+    font-size: 1.5rem;
+    color: #000;
+    border-radius: 0.25rem;
+    width: max-content;
+    margin: 1rem 0 0.25rem 0;
+    font-weight: 700;
+}
+
+.proof--of--auction,
+.proof--of--token {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+}
+
+.proof--of--link {
+    color: #007aff;;
+}
+
+.proof--of--link:hover {
+    color: #007aff;;
+}

@@ -1,16 +1,18 @@
-[programs.localnet]
-auction_factory = "2jbfTkQ4DgbSZtb8KTq61v2ox8s1GCuGebKa1EPq3tbY"
-
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
 cluster = "localnet"
-wallet = "/Users/jacobshiohira/.config/solana/id.json"
+wallet = "~/.config/solana/id.json"
 
-[scripts]
-test = "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+[programs.localnet]
+auction_factory = "2jbfTkQ4DgbSZtb8KTq61v2ox8s1GCuGebKa1EPq3tbY"
 
 [[test.genesis]]
 address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
 program = "./tests/programs/mpl_token_metadata.so"
+
+[workspace]
+members = [
+  "packages/contracts/auction-factory",
+]

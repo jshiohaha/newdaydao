@@ -1,1 +1,0 @@
-solana-keygen pubkey ./target/deploy/auction_factory-keypair.json

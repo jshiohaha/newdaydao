@@ -1,0 +1,45 @@
+.asset--wrapper {
+    height: 30rem;
+    width: 30rem;
+    z-index: 1;
+    position: relative;
+}
+
+.asset--content {
+    height: 100%;
+    width: 100%;
+    border-radius: 1rem;
+    position: relative;
+    z-index: 3;
+}
+
+.undefined--asset--content {
+    background-color: #000;
+}
+
+.asset--text {
+    margin: 0px;
+    width: max-content;
+    position: relative;
+    margin: auto;
+}
+
+.loading--asset--wrapper {
+    margin: 0;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    -ms-transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
+}
+
+.asset--content--placeholder {
+    height: 100%;
+    width: 100%;
+    border-radius: 1rem;
+    background-color: #000;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+}

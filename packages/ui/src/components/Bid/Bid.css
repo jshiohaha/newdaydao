@@ -1,0 +1,120 @@
+.bid--wrapper {
+    margin: 1rem 0;
+}
+
+.bid--button {
+    margin-left: 1rem;
+    width: 30%;
+    height: 3.2rem;
+    color: white;
+    border: transparent;
+    font-weight: bold;
+    border-radius: 5px;
+
+    background-color: grey;
+    outline: none;
+    box-shadow: none;
+}
+
+.bid--button:hover,
+.bid--button:active,
+.bid--button:focus,
+.bid--button:disabled {
+    background-color: gray;
+    outline: none;
+    box-shadow: none;
+}
+
+.min--bid--copy {
+    padding-top: 0;
+    font-size: small;
+    margin-left: 0.25rem;
+    margin-bottom: 0.3rem;
+}
+
+.bid--input {
+    font-family: "Roboto Mono", monospace;
+    color: black;
+    font-size: 1.25rem;
+    height: 3rem;
+    border: 1px solid #aaa;
+    border-radius: 0.25rem;
+    background-color: white;
+    outline: none;
+    box-shadow: none;
+    padding-left: 1rem;
+}
+
+.bid--input:focus {
+    border: none;
+    border: 1px solid #aaa;
+}
+
+.custom--placeholder {
+    position: absolute;
+    top: 25%;
+    font-weight: bold;
+    color: #aaa;
+    z-index: 3;
+    right: 50%;
+}
+
+.bid--button--auction--ended {
+    width: 100%;
+    height: 3rem;
+    color: white;
+    border: transparent;
+    background-color: var(--brand-black);
+    font-weight: bold;
+}
+
+.bid--button--auction--ended:hover,
+.bid--button--auction--ended:active,
+.bid--button--auction--ended:focus,
+.bid--button--auction--ended:disabled {
+    background-color: gray;
+    color: rgb(209, 207, 207);
+    outline: none;
+    box-shadow: none;
+}
+
+.bid--input--auction--ended {
+    display: none;
+}
+
+.bid--input:focus {
+    outline: none;
+}
+
+/* REMOVE UP/DOWN ARROWS FROM INPUT */
+/* Chrome, Safari, Edge, Opera */
+.bid--input::-webkit-outer-spin-button,
+.bid--input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+/* Firefox */
+.bid--input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+@media (max-width: 992px) {
+    .bid--input {
+        border-color: #c3c3c3;
+    }
+    .custom--placeholder {
+        left: 44%;
+    }
+}
+
+.bid--input--container {
+    width: max-content;
+}
+
+.input--group {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    width: 100%;
+}
