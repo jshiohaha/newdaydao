@@ -10,68 +10,70 @@ import * as web3 from '@solana/web3.js'
 
 /**
  * @category Instructions
- * @category CreateFirstAuction
+ * @category CreateAuction
  * @category generated
  */
-export type CreateFirstAuctionInstructionArgs = {
+export type CreateAuctionInstructionArgs = {
   seed: string
-  sequence: beet.bignum
+  currentAuctionBump: number
 }
 /**
  * @category Instructions
- * @category CreateFirstAuction
+ * @category CreateAuction
  * @category generated
  */
-export const createFirstAuctionStruct = new beet.FixableBeetArgsStruct<
-  CreateFirstAuctionInstructionArgs & {
+export const createAuctionStruct = new beet.FixableBeetArgsStruct<
+  CreateAuctionInstructionArgs & {
     instructionDiscriminator: number[] /* size: 8 */
   }
 >(
   [
     ['instructionDiscriminator', beet.uniformFixedSizeArray(beet.u8, 8)],
     ['seed', beet.utf8String],
-    ['sequence', beet.u64],
+    ['currentAuctionBump', beet.u8],
   ],
-  'CreateFirstAuctionInstructionArgs'
+  'CreateAuctionInstructionArgs'
 )
 /**
- * Accounts required by the _createFirstAuction_ instruction
+ * Accounts required by the _createAuction_ instruction
  *
  * @property [_writable_, **signer**] payer
  * @property [_writable_] auctionFactory
- * @property [_writable_] auction
+ * @property [] currentAuction
+ * @property [_writable_] nextAuction
  * @category Instructions
- * @category CreateFirstAuction
+ * @category CreateAuction
  * @category generated
  */
-export type CreateFirstAuctionInstructionAccounts = {
+export type CreateAuctionInstructionAccounts = {
   payer: web3.PublicKey
   auctionFactory: web3.PublicKey
-  auction: web3.PublicKey
+  currentAuction: web3.PublicKey
+  nextAuction: web3.PublicKey
   systemProgram?: web3.PublicKey
 }
 
-export const createFirstAuctionInstructionDiscriminator = [
-  240, 168, 115, 240, 91, 248, 54, 241,
+export const createAuctionInstructionDiscriminator = [
+  234, 6, 201, 246, 47, 219, 176, 107,
 ]
 
 /**
- * Creates a _CreateFirstAuction_ instruction.
+ * Creates a _CreateAuction_ instruction.
  *
  * @param accounts that will be accessed while the instruction is processed
  * @param args to provide as instruction data to the program
  *
  * @category Instructions
- * @category CreateFirstAuction
+ * @category CreateAuction
  * @category generated
  */
-export function createCreateFirstAuctionInstruction(
-  accounts: CreateFirstAuctionInstructionAccounts,
-  args: CreateFirstAuctionInstructionArgs,
+export function createCreateAuctionInstruction(
+  accounts: CreateAuctionInstructionAccounts,
+  args: CreateAuctionInstructionArgs,
   programId = new web3.PublicKey('2jbfTkQ4DgbSZtb8KTq61v2ox8s1GCuGebKa1EPq3tbY')
 ) {
-  const [data] = createFirstAuctionStruct.serialize({
-    instructionDiscriminator: createFirstAuctionInstructionDiscriminator,
+  const [data] = createAuctionStruct.serialize({
+    instructionDiscriminator: createAuctionInstructionDiscriminator,
     ...args,
   })
   const keys: web3.AccountMeta[] = [
@@ -86,7 +88,12 @@ export function createCreateFirstAuctionInstruction(
       isSigner: false,
     },
     {
-      pubkey: accounts.auction,
+      pubkey: accounts.currentAuction,
+      isWritable: false,
+      isSigner: false,
+    },
+    {
+      pubkey: accounts.nextAuction,
       isWritable: true,
       isSigner: false,
     },

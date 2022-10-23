@@ -4,7 +4,7 @@ const programDir = path.join(
   __dirname,
   "..",
   "..",
-  "contract",
+  "contracts",
   "auction-factory"
 );
 const idlDir = path.join(__dirname, "idl");

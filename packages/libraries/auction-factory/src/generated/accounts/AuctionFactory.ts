@@ -28,7 +28,6 @@ export type AuctionFactoryArgs = {
   initializedAt: beet.bignum
   activeSince: beet.bignum
   treasury: web3.PublicKey
-  config: web3.PublicKey
 }
 
 export const auctionFactoryDiscriminator = [173, 152, 34, 4, 231, 142, 46, 16]
@@ -49,8 +48,7 @@ export class AuctionFactory implements AuctionFactoryArgs {
     readonly data: AuctionFactoryData,
     readonly initializedAt: beet.bignum,
     readonly activeSince: beet.bignum,
-    readonly treasury: web3.PublicKey,
-    readonly config: web3.PublicKey
+    readonly treasury: web3.PublicKey
   ) {}
 
   /**
@@ -66,8 +64,7 @@ export class AuctionFactory implements AuctionFactoryArgs {
       args.data,
       args.initializedAt,
       args.activeSince,
-      args.treasury,
-      args.config
+      args.treasury
     )
   }
 
@@ -211,7 +208,6 @@ export class AuctionFactory implements AuctionFactoryArgs {
         return x
       })(),
       treasury: this.treasury.toBase58(),
-      config: this.config.toBase58(),
     }
   }
 }
@@ -237,7 +233,6 @@ export const auctionFactoryBeet = new beet.FixableBeetStruct<
     ['initializedAt', beet.u64],
     ['activeSince', beet.u64],
     ['treasury', beetSolana.publicKey],
-    ['config', beetSolana.publicKey],
   ],
   AuctionFactory.fromArgs,
   'AuctionFactory'

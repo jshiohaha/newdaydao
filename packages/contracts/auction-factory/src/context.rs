@@ -113,16 +113,6 @@ pub struct CreateAuction<'info> {
 pub struct SupplyResource<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
-    // note: fully remove config account
-    // #[account(
-    //     mut,
-    //     seeds = [
-    //         URI_CONFIG_SEED.as_bytes(),
-    //         config_seed.as_bytes()
-    //     ],
-    //     bump,
-    // )]
-    // pub config: Account<'info, Config>,
     #[account(
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),
@@ -343,7 +333,6 @@ pub struct CloseAuctionTokenAccount<'info> {
 #[derive(Accounts)]
 #[instruction(
     seed: String,
-    config_seed: String,
     data: AuctionFactoryData
 )]
 pub struct InitializeAuctionFactory<'info> {
@@ -355,16 +344,6 @@ pub struct InitializeAuctionFactory<'info> {
     // will be lost again until updated.
     #[account(constraint= treasury.lamports() > 0)]
     pub treasury: AccountInfo<'info>,
-    // note: fully remove config account
-    // #[account(
-    //     seeds = [
-    //         URI_CONFIG_SEED.as_bytes(),
-    //         config_seed.as_bytes(),
-    //     ],
-    //     bump,
-    //     constraint = config.to_account_info().owner == program_id,
-    // )]
-    // pub config: Account<'info, Config>,
     #[account(init,
         seeds = [
             AUX_FACTORY_SEED.as_bytes(),

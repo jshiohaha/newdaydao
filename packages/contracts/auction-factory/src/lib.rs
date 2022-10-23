@@ -13,11 +13,7 @@ use {
     context::*,
     error::ErrorCode,
     solana_program::msg,
-    state::{
-        auction::{to_auction, Auction},
-        auction_factory::{AuctionFactory, AuctionFactoryData},
-        bid::to_bid,
-    },
+    state::{auction::to_auction, auction_factory::AuctionFactoryData, bid::to_bid},
     util::{general::get_available_lamports, metadata::provide_metadata},
 };
 
@@ -87,7 +83,7 @@ pub mod auction_factory {
     }
 
     // separate ix from create_auction because we cannot call ix this until an auction acount has been created.
-    // from the client, we might be able to pack these ixns into 1 txn, assuming we will not exceed computational budge.
+    // from the client, we might be able to pack these ixns into 1 txn, assuming we will not exceed computational budget.
     // otherwise, user might have to sign 2 separate transactions when creating an auction & supplying a resource to that auction.
     pub fn supply_resource_to_auction(
         ctx: Context<SupplyResource>,

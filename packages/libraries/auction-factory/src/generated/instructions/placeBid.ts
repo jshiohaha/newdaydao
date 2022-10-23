@@ -17,6 +17,7 @@ export type PlaceBidInstructionArgs = {
   seed: string
   sequence: beet.bignum
   amount: beet.bignum
+  currentBidBump: number
 }
 /**
  * @category Instructions
@@ -33,6 +34,7 @@ export const placeBidStruct = new beet.FixableBeetArgsStruct<
     ['seed', beet.utf8String],
     ['sequence', beet.u64],
     ['amount', beet.u64],
+    ['currentBidBump', beet.u8],
   ],
   'PlaceBidInstructionArgs'
 )

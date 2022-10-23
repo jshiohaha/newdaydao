@@ -19,7 +19,6 @@ import {
  */
 export type InitializeAuctionFactoryInstructionArgs = {
   seed: string
-  configSeed: string
   data: AuctionFactoryData
 }
 /**
@@ -35,7 +34,6 @@ export const initializeAuctionFactoryStruct = new beet.FixableBeetArgsStruct<
   [
     ['instructionDiscriminator', beet.uniformFixedSizeArray(beet.u8, 8)],
     ['seed', beet.utf8String],
-    ['configSeed', beet.utf8String],
     ['data', auctionFactoryDataBeet],
   ],
   'InitializeAuctionFactoryInstructionArgs'
@@ -45,7 +43,6 @@ export const initializeAuctionFactoryStruct = new beet.FixableBeetArgsStruct<
  *
  * @property [_writable_, **signer**] payer
  * @property [] treasury
- * @property [] config
  * @property [_writable_] auctionFactory
  * @category Instructions
  * @category InitializeAuctionFactory
@@ -54,7 +51,6 @@ export const initializeAuctionFactoryStruct = new beet.FixableBeetArgsStruct<
 export type InitializeAuctionFactoryInstructionAccounts = {
   payer: web3.PublicKey
   treasury: web3.PublicKey
-  config: web3.PublicKey
   auctionFactory: web3.PublicKey
   systemProgram?: web3.PublicKey
 }
@@ -90,11 +86,6 @@ export function createInitializeAuctionFactoryInstruction(
     },
     {
       pubkey: accounts.treasury,
-      isWritable: false,
-      isSigner: false,
-    },
-    {
-      pubkey: accounts.config,
       isWritable: false,
       isSigner: false,
     },

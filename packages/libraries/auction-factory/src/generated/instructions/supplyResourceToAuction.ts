@@ -16,7 +16,6 @@ import * as web3 from '@solana/web3.js'
  */
 export type SupplyResourceToAuctionInstructionArgs = {
   seed: string
-  configSeed: string
   sequence: beet.bignum
 }
 /**
@@ -32,7 +31,6 @@ export const supplyResourceToAuctionStruct = new beet.FixableBeetArgsStruct<
   [
     ['instructionDiscriminator', beet.uniformFixedSizeArray(beet.u8, 8)],
     ['seed', beet.utf8String],
-    ['configSeed', beet.utf8String],
     ['sequence', beet.u64],
   ],
   'SupplyResourceToAuctionInstructionArgs'
@@ -41,7 +39,6 @@ export const supplyResourceToAuctionStruct = new beet.FixableBeetArgsStruct<
  * Accounts required by the _supplyResourceToAuction_ instruction
  *
  * @property [_writable_, **signer**] payer
- * @property [_writable_] config
  * @property [] auctionFactory
  * @property [_writable_] auction
  * @property [_writable_] mint
@@ -54,7 +51,6 @@ export const supplyResourceToAuctionStruct = new beet.FixableBeetArgsStruct<
  */
 export type SupplyResourceToAuctionInstructionAccounts = {
   payer: web3.PublicKey
-  config: web3.PublicKey
   auctionFactory: web3.PublicKey
   auction: web3.PublicKey
   mint: web3.PublicKey
@@ -94,11 +90,6 @@ export function createSupplyResourceToAuctionInstruction(
       pubkey: accounts.payer,
       isWritable: true,
       isSigner: true,
-    },
-    {
-      pubkey: accounts.config,
-      isWritable: true,
-      isSigner: false,
     },
     {
       pubkey: accounts.auctionFactory,

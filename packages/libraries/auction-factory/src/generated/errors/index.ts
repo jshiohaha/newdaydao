@@ -170,116 +170,13 @@ createErrorFromNameLookup.set(
 )
 
 /**
- * ConfigUuidInvalidLengthError: 'Uuid must be length 5'
- *
- * @category Errors
- * @category generated
- */
-export class ConfigUuidInvalidLengthErrorError extends Error {
-  readonly code: number = 0x1777
-  readonly name: string = 'ConfigUuidInvalidLengthError'
-  constructor() {
-    super('Uuid must be length 5')
-    if (typeof Error.captureStackTrace === 'function') {
-      Error.captureStackTrace(this, ConfigUuidInvalidLengthErrorError)
-    }
-  }
-}
-
-createErrorFromCodeLookup.set(
-  0x1777,
-  () => new ConfigUuidInvalidLengthErrorError()
-)
-createErrorFromNameLookup.set(
-  'ConfigUuidInvalidLengthError',
-  () => new ConfigUuidInvalidLengthErrorError()
-)
-
-/**
- * ConfigElementTooShortError: 'Config element too short. Config data elements must be at least 1 char in length.'
- *
- * @category Errors
- * @category generated
- */
-export class ConfigElementTooShortErrorError extends Error {
-  readonly code: number = 0x1778
-  readonly name: string = 'ConfigElementTooShortError'
-  constructor() {
-    super(
-      'Config element too short. Config data elements must be at least 1 char in length.'
-    )
-    if (typeof Error.captureStackTrace === 'function') {
-      Error.captureStackTrace(this, ConfigElementTooShortErrorError)
-    }
-  }
-}
-
-createErrorFromCodeLookup.set(
-  0x1778,
-  () => new ConfigElementTooShortErrorError()
-)
-createErrorFromNameLookup.set(
-  'ConfigElementTooShortError',
-  () => new ConfigElementTooShortErrorError()
-)
-
-/**
- * ConfigElementTooLongError: 'Config element too long. Must be less than max length!'
- *
- * @category Errors
- * @category generated
- */
-export class ConfigElementTooLongErrorError extends Error {
-  readonly code: number = 0x1779
-  readonly name: string = 'ConfigElementTooLongError'
-  constructor() {
-    super('Config element too long. Must be less than max length!')
-    if (typeof Error.captureStackTrace === 'function') {
-      Error.captureStackTrace(this, ConfigElementTooLongErrorError)
-    }
-  }
-}
-
-createErrorFromCodeLookup.set(
-  0x1779,
-  () => new ConfigElementTooLongErrorError()
-)
-createErrorFromNameLookup.set(
-  'ConfigElementTooLongError',
-  () => new ConfigElementTooLongErrorError()
-)
-
-/**
- * InsufficientConfigError: 'Insufficient config error!'
- *
- * @category Errors
- * @category generated
- */
-export class InsufficientConfigErrorError extends Error {
-  readonly code: number = 0x177a
-  readonly name: string = 'InsufficientConfigError'
-  constructor() {
-    super('Insufficient config error!')
-    if (typeof Error.captureStackTrace === 'function') {
-      Error.captureStackTrace(this, InsufficientConfigErrorError)
-    }
-  }
-}
-
-createErrorFromCodeLookup.set(0x177a, () => new InsufficientConfigErrorError())
-createErrorFromNameLookup.set(
-  'InsufficientConfigError',
-  () => new InsufficientConfigErrorError()
-)
-
-/**
  * InactiveAuction: 'Auction is not in a state to perform such action.'
  *
  * @category Errors
  * @category generated
  */
 export class InactiveAuctionError extends Error {
-  readonly code: number = 0x177b
+  readonly code: number = 0x1777
   readonly name: string = 'InactiveAuction'
   constructor() {
     super('Auction is not in a state to perform such action.')
@@ -289,7 +186,7 @@ export class InactiveAuctionError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x177b, () => new InactiveAuctionError())
+createErrorFromCodeLookup.set(0x1777, () => new InactiveAuctionError())
 createErrorFromNameLookup.set(
   'InactiveAuction',
   () => new InactiveAuctionError()
@@ -302,7 +199,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class AuctionResourceAlreadyExistsError extends Error {
-  readonly code: number = 0x177c
+  readonly code: number = 0x1778
   readonly name: string = 'AuctionResourceAlreadyExists'
   constructor() {
     super('Auction resource can only be generated once.')
@@ -313,7 +210,7 @@ export class AuctionResourceAlreadyExistsError extends Error {
 }
 
 createErrorFromCodeLookup.set(
-  0x177c,
+  0x1778,
   () => new AuctionResourceAlreadyExistsError()
 )
 createErrorFromNameLookup.set(
@@ -328,7 +225,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class UnsettledAuctionError extends Error {
-  readonly code: number = 0x177d
+  readonly code: number = 0x1779
   readonly name: string = 'UnsettledAuction'
   constructor() {
     super('Must settle any ongoing auction before creating a new auction.')
@@ -338,7 +235,7 @@ export class UnsettledAuctionError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x177d, () => new UnsettledAuctionError())
+createErrorFromCodeLookup.set(0x1779, () => new UnsettledAuctionError())
 createErrorFromNameLookup.set(
   'UnsettledAuction',
   () => new UnsettledAuctionError()
@@ -351,7 +248,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class AuctionAlreadySettledError extends Error {
-  readonly code: number = 0x177e
+  readonly code: number = 0x177a
   readonly name: string = 'AuctionAlreadySettled'
   constructor() {
     super('Auction is already settled.')
@@ -361,7 +258,7 @@ export class AuctionAlreadySettledError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x177e, () => new AuctionAlreadySettledError())
+createErrorFromCodeLookup.set(0x177a, () => new AuctionAlreadySettledError())
 createErrorFromNameLookup.set(
   'AuctionAlreadySettled',
   () => new AuctionAlreadySettledError()
@@ -374,7 +271,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class AuctionIsLiveError extends Error {
-  readonly code: number = 0x177f
+  readonly code: number = 0x177b
   readonly name: string = 'AuctionIsLive'
   constructor() {
     super('Auction is live and cannot be settled.')
@@ -384,7 +281,7 @@ export class AuctionIsLiveError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x177f, () => new AuctionIsLiveError())
+createErrorFromCodeLookup.set(0x177b, () => new AuctionIsLiveError())
 createErrorFromNameLookup.set('AuctionIsLive', () => new AuctionIsLiveError())
 
 /**
@@ -394,7 +291,7 @@ createErrorFromNameLookup.set('AuctionIsLive', () => new AuctionIsLiveError())
  * @category generated
  */
 export class InvalidBidAmountError extends Error {
-  readonly code: number = 0x1780
+  readonly code: number = 0x177c
   readonly name: string = 'InvalidBidAmount'
   constructor() {
     super(
@@ -406,7 +303,7 @@ export class InvalidBidAmountError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x1780, () => new InvalidBidAmountError())
+createErrorFromCodeLookup.set(0x177c, () => new InvalidBidAmountError())
 createErrorFromNameLookup.set(
   'InvalidBidAmount',
   () => new InvalidBidAmountError()
@@ -419,7 +316,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class NoActiveAuctionError extends Error {
-  readonly code: number = 0x1781
+  readonly code: number = 0x177d
   readonly name: string = 'NoActiveAuction'
   constructor() {
     super('Cannot modify an auction that does not exist.')
@@ -429,7 +326,7 @@ export class NoActiveAuctionError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x1781, () => new NoActiveAuctionError())
+createErrorFromCodeLookup.set(0x177d, () => new NoActiveAuctionError())
 createErrorFromNameLookup.set(
   'NoActiveAuction',
   () => new NoActiveAuctionError()
@@ -442,7 +339,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class AuctionAddressMismatchError extends Error {
-  readonly code: number = 0x1782
+  readonly code: number = 0x177e
   readonly name: string = 'AuctionAddressMismatch'
   constructor() {
     super('Auction address mismatch.')
@@ -452,7 +349,7 @@ export class AuctionAddressMismatchError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x1782, () => new AuctionAddressMismatchError())
+createErrorFromCodeLookup.set(0x177e, () => new AuctionAddressMismatchError())
 createErrorFromNameLookup.set(
   'AuctionAddressMismatch',
   () => new AuctionAddressMismatchError()
@@ -465,7 +362,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class AuctionsAlreadyInitializedError extends Error {
-  readonly code: number = 0x1783
+  readonly code: number = 0x177f
   readonly name: string = 'AuctionsAlreadyInitialized'
   constructor() {
     super('Initialize auctions can only be called once.')
@@ -476,7 +373,7 @@ export class AuctionsAlreadyInitializedError extends Error {
 }
 
 createErrorFromCodeLookup.set(
-  0x1783,
+  0x177f,
   () => new AuctionsAlreadyInitializedError()
 )
 createErrorFromNameLookup.set(
@@ -491,7 +388,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class BidderAlreadyWinningError extends Error {
-  readonly code: number = 0x1784
+  readonly code: number = 0x1780
   readonly name: string = 'BidderAlreadyWinning'
   constructor() {
     super('Bidder is already winning the auction')
@@ -501,7 +398,7 @@ export class BidderAlreadyWinningError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x1784, () => new BidderAlreadyWinningError())
+createErrorFromCodeLookup.set(0x1780, () => new BidderAlreadyWinningError())
 createErrorFromNameLookup.set(
   'BidderAlreadyWinning',
   () => new BidderAlreadyWinningError()
@@ -514,7 +411,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class WrongSettleAuctionEndpointError extends Error {
-  readonly code: number = 0x1785
+  readonly code: number = 0x1781
   readonly name: string = 'WrongSettleAuctionEndpoint'
   constructor() {
     super('Wrong settle auction endpoint!')
@@ -525,7 +422,7 @@ export class WrongSettleAuctionEndpointError extends Error {
 }
 
 createErrorFromCodeLookup.set(
-  0x1785,
+  0x1781,
   () => new WrongSettleAuctionEndpointError()
 )
 createErrorFromNameLookup.set(
@@ -540,7 +437,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class AuctionHasNoResourceAvailableError extends Error {
-  readonly code: number = 0x1786
+  readonly code: number = 0x1782
   readonly name: string = 'AuctionHasNoResourceAvailable'
   constructor() {
     super('Must supply resource to auction before settling!')
@@ -551,7 +448,7 @@ export class AuctionHasNoResourceAvailableError extends Error {
 }
 
 createErrorFromCodeLookup.set(
-  0x1786,
+  0x1782,
   () => new AuctionHasNoResourceAvailableError()
 )
 createErrorFromNameLookup.set(
@@ -566,7 +463,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class InvalidBidAccountError extends Error {
-  readonly code: number = 0x1787
+  readonly code: number = 0x1783
   readonly name: string = 'InvalidBidAccount'
   constructor() {
     super('Invalid bid account supplied')
@@ -576,7 +473,7 @@ export class InvalidBidAccountError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x1787, () => new InvalidBidAccountError())
+createErrorFromCodeLookup.set(0x1783, () => new InvalidBidAccountError())
 createErrorFromNameLookup.set(
   'InvalidBidAccount',
   () => new InvalidBidAccountError()
@@ -589,7 +486,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class NumericalOverflowErrorError extends Error {
-  readonly code: number = 0x1788
+  readonly code: number = 0x1784
   readonly name: string = 'NumericalOverflowError'
   constructor() {
     super('Numerical overflow error!')
@@ -599,7 +496,7 @@ export class NumericalOverflowErrorError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x1788, () => new NumericalOverflowErrorError())
+createErrorFromCodeLookup.set(0x1784, () => new NumericalOverflowErrorError())
 createErrorFromNameLookup.set(
   'NumericalOverflowError',
   () => new NumericalOverflowErrorError()
@@ -612,7 +509,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class NumericalUnderflowErrorError extends Error {
-  readonly code: number = 0x1789
+  readonly code: number = 0x1785
   readonly name: string = 'NumericalUnderflowError'
   constructor() {
     super('Numerical underflow error!')
@@ -622,7 +519,7 @@ export class NumericalUnderflowErrorError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x1789, () => new NumericalUnderflowErrorError())
+createErrorFromCodeLookup.set(0x1785, () => new NumericalUnderflowErrorError())
 createErrorFromNameLookup.set(
   'NumericalUnderflowError',
   () => new NumericalUnderflowErrorError()
@@ -635,7 +532,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class CheckedRemErrorError extends Error {
-  readonly code: number = 0x178a
+  readonly code: number = 0x1786
   readonly name: string = 'CheckedRemError'
   constructor() {
     super('Checked REM error')
@@ -645,7 +542,7 @@ export class CheckedRemErrorError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x178a, () => new CheckedRemErrorError())
+createErrorFromCodeLookup.set(0x1786, () => new CheckedRemErrorError())
 createErrorFromNameLookup.set(
   'CheckedRemError',
   () => new CheckedRemErrorError()
@@ -658,7 +555,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class NumericalDivisionErrorError extends Error {
-  readonly code: number = 0x178b
+  readonly code: number = 0x1787
   readonly name: string = 'NumericalDivisionError'
   constructor() {
     super('Numerical division error!')
@@ -668,7 +565,7 @@ export class NumericalDivisionErrorError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x178b, () => new NumericalDivisionErrorError())
+createErrorFromCodeLookup.set(0x1787, () => new NumericalDivisionErrorError())
 createErrorFromNameLookup.set(
   'NumericalDivisionError',
   () => new NumericalDivisionErrorError()
@@ -681,7 +578,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class NotAuthorizedError extends Error {
-  readonly code: number = 0x178c
+  readonly code: number = 0x1788
   readonly name: string = 'NotAuthorized'
   constructor() {
     super('Account is not authorized to take such action.')
@@ -691,7 +588,7 @@ export class NotAuthorizedError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x178c, () => new NotAuthorizedError())
+createErrorFromCodeLookup.set(0x1788, () => new NotAuthorizedError())
 createErrorFromNameLookup.set('NotAuthorized', () => new NotAuthorizedError())
 
 /**
@@ -701,7 +598,7 @@ createErrorFromNameLookup.set('NotAuthorized', () => new NotAuthorizedError())
  * @category generated
  */
 export class PublicKeyMismatchError extends Error {
-  readonly code: number = 0x178d
+  readonly code: number = 0x1789
   readonly name: string = 'PublicKeyMismatch'
   constructor() {
     super('Public key mismatch')
@@ -711,7 +608,7 @@ export class PublicKeyMismatchError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x178d, () => new PublicKeyMismatchError())
+createErrorFromCodeLookup.set(0x1789, () => new PublicKeyMismatchError())
 createErrorFromNameLookup.set(
   'PublicKeyMismatch',
   () => new PublicKeyMismatchError()
@@ -724,7 +621,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class TokenTransferFailedError extends Error {
-  readonly code: number = 0x178e
+  readonly code: number = 0x178a
   readonly name: string = 'TokenTransferFailed'
   constructor() {
     super('Token transfer failed')
@@ -734,7 +631,7 @@ export class TokenTransferFailedError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x178e, () => new TokenTransferFailedError())
+createErrorFromCodeLookup.set(0x178a, () => new TokenTransferFailedError())
 createErrorFromNameLookup.set(
   'TokenTransferFailed',
   () => new TokenTransferFailedError()
@@ -747,7 +644,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class InsufficientAccountBalanceError extends Error {
-  readonly code: number = 0x178f
+  readonly code: number = 0x178b
   readonly name: string = 'InsufficientAccountBalance'
   constructor() {
     super('Insufficient account balance!')
@@ -758,7 +655,7 @@ export class InsufficientAccountBalanceError extends Error {
 }
 
 createErrorFromCodeLookup.set(
-  0x178f,
+  0x178b,
   () => new InsufficientAccountBalanceError()
 )
 createErrorFromNameLookup.set(
@@ -773,7 +670,7 @@ createErrorFromNameLookup.set(
  * @category generated
  */
 export class ForcedErrorError extends Error {
-  readonly code: number = 0x1790
+  readonly code: number = 0x178c
   readonly name: string = 'ForcedError'
   constructor() {
     super('Forced error')
@@ -783,7 +680,7 @@ export class ForcedErrorError extends Error {
   }
 }
 
-createErrorFromCodeLookup.set(0x1790, () => new ForcedErrorError())
+createErrorFromCodeLookup.set(0x178c, () => new ForcedErrorError())
 createErrorFromNameLookup.set('ForcedError', () => new ForcedErrorError())
 
 /**

@@ -37,7 +37,7 @@ pub struct AuctionFactory {
     // address of the auction factory's treasury. post auction settlement, the winning bid
     // amount will be transferred here.
     pub treasury: Pubkey,
-    // todo: prev removed config, need to add descriptor & category accounts
+    // todo: prev removed config, need to add descriptor & category accounts for later validation
 }
 
 impl AuctionFactory {

@@ -43,42 +43,7 @@
       ]
     },
     {
-      "name": "createFirstAuction",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "auctionFactory",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "auction",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "seed",
-          "type": "string"
-        },
-        {
-          "name": "sequence",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "createNextAuction",
+      "name": "createAuction",
       "accounts": [
         {
           "name": "payer",
@@ -92,7 +57,7 @@
         },
         {
           "name": "currentAuction",
-          "isMut": true,
+          "isMut": false,
           "isSigner": false
         },
         {
@@ -112,12 +77,8 @@
           "type": "string"
         },
         {
-          "name": "currentSeq",
-          "type": "u64"
-        },
-        {
-          "name": "nextSeq",
-          "type": "u64"
+          "name": "currentAuctionBump",
+          "type": "u8"
         }
       ]
     },
@@ -128,11 +89,6 @@
           "name": "payer",
           "isMut": true,
           "isSigner": true
-        },
-        {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
         },
         {
           "name": "auctionFactory",
@@ -183,10 +139,6 @@
       "args": [
         {
           "name": "seed",
-          "type": "string"
-        },
-        {
-          "name": "configSeed",
           "type": "string"
         },
         {
@@ -246,6 +198,10 @@
         {
           "name": "amount",
           "type": "u64"
+        },
+        {
+          "name": "currentBidBump",
+          "type": "u8"
         }
       ]
     },
@@ -396,11 +352,6 @@
           "isSigner": false
         },
         {
-          "name": "config",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
           "name": "auctionFactory",
           "isMut": true,
           "isSigner": false
@@ -414,10 +365,6 @@
       "args": [
         {
           "name": "seed",
-          "type": "string"
-        },
-        {
-          "name": "configSeed",
           "type": "string"
         },
         {
@@ -553,77 +500,6 @@
           "type": "string"
         }
       ]
-    },
-    {
-      "name": "initializeConfig",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": true,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "seed",
-          "type": "string"
-        },
-        {
-          "name": "maxSupply",
-          "type": "u32"
-        }
-      ]
-    },
-    {
-      "name": "addUrisToConfig",
-      "accounts": [
-        {
-          "name": "payer",
-          "isMut": false,
-          "isSigner": true
-        },
-        {
-          "name": "config",
-          "isMut": true,
-          "isSigner": false
-        },
-        {
-          "name": "auctionFactory",
-          "isMut": false,
-          "isSigner": false
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false
-        }
-      ],
-      "args": [
-        {
-          "name": "seed",
-          "type": "string"
-        },
-        {
-          "name": "configSeed",
-          "type": "string"
-        },
-        {
-          "name": "configData",
-          "type": {
-            "vec": "string"
-          }
-        }
-      ]
     }
   ],
   "accounts": [
@@ -668,10 +544,6 @@
           },
           {
             "name": "treasury",
-            "type": "publicKey"
-          },
-          {
-            "name": "config",
             "type": "publicKey"
           }
         ]
@@ -754,40 +626,6 @@
           }
         ]
       }
-    },
-    {
-      "name": "Config",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "seed",
-            "type": "string"
-          },
-          {
-            "name": "maxSupply",
-            "type": "u32"
-          },
-          {
-            "name": "updateIdx",
-            "type": "u32"
-          },
-          {
-            "name": "isUpdated",
-            "type": "bool"
-          },
-          {
-            "name": "buffer",
-            "type": {
-              "vec": "string"
-            }
-          }
-        ]
-      }
     }
   ],
   "types": [
@@ -854,131 +692,111 @@
     },
     {
       "code": 6007,
-      "name": "ConfigUuidInvalidLengthError",
-      "msg": "Uuid must be length 5"
-    },
-    {
-      "code": 6008,
-      "name": "ConfigElementTooShortError",
-      "msg": "Config element too short. Config data elements must be at least 1 char in length."
-    },
-    {
-      "code": 6009,
-      "name": "ConfigElementTooLongError",
-      "msg": "Config element too long. Must be less than max length!"
-    },
-    {
-      "code": 6010,
-      "name": "InsufficientConfigError",
-      "msg": "Insufficient config error!"
-    },
-    {
-      "code": 6011,
       "name": "InactiveAuction",
       "msg": "Auction is not in a state to perform such action."
     },
     {
-      "code": 6012,
+      "code": 6008,
       "name": "AuctionResourceAlreadyExists",
       "msg": "Auction resource can only be generated once."
     },
     {
-      "code": 6013,
+      "code": 6009,
       "name": "UnsettledAuction",
       "msg": "Must settle any ongoing auction before creating a new auction."
     },
     {
-      "code": 6014,
+      "code": 6010,
       "name": "AuctionAlreadySettled",
       "msg": "Auction is already settled."
     },
     {
-      "code": 6015,
+      "code": 6011,
       "name": "AuctionIsLive",
       "msg": "Auction is live and cannot be settled."
     },
     {
-      "code": 6016,
+      "code": 6012,
       "name": "InvalidBidAmount",
       "msg": "Bid must be a non-negative, non-zero amount. Bid must also beat previous bid by some percent."
     },
     {
-      "code": 6017,
+      "code": 6013,
       "name": "NoActiveAuction",
       "msg": "Cannot modify an auction that does not exist."
     },
     {
-      "code": 6018,
+      "code": 6014,
       "name": "AuctionAddressMismatch",
       "msg": "Auction address mismatch."
     },
     {
-      "code": 6019,
+      "code": 6015,
       "name": "AuctionsAlreadyInitialized",
       "msg": "Initialize auctions can only be called once."
     },
     {
-      "code": 6020,
+      "code": 6016,
       "name": "BidderAlreadyWinning",
       "msg": "Bidder is already winning the auction"
     },
     {
-      "code": 6021,
+      "code": 6017,
       "name": "WrongSettleAuctionEndpoint",
       "msg": "Wrong settle auction endpoint!"
     },
     {
-      "code": 6022,
+      "code": 6018,
       "name": "AuctionHasNoResourceAvailable",
       "msg": "Must supply resource to auction before settling!"
     },
     {
-      "code": 6023,
+      "code": 6019,
       "name": "InvalidBidAccount",
       "msg": "Invalid bid account supplied"
     },
     {
-      "code": 6024,
+      "code": 6020,
       "name": "NumericalOverflowError",
       "msg": "Numerical overflow error!"
     },
     {
-      "code": 6025,
+      "code": 6021,
       "name": "NumericalUnderflowError",
       "msg": "Numerical underflow error!"
     },
     {
-      "code": 6026,
+      "code": 6022,
       "name": "CheckedRemError",
       "msg": "Checked REM error"
     },
     {
-      "code": 6027,
+      "code": 6023,
       "name": "NumericalDivisionError",
       "msg": "Numerical division error!"
     },
     {
-      "code": 6028,
+      "code": 6024,
       "name": "NotAuthorized",
       "msg": "Account is not authorized to take such action."
     },
     {
-      "code": 6029,
+      "code": 6025,
       "name": "PublicKeyMismatch",
       "msg": "Public key mismatch"
     },
     {
-      "code": 6030,
+      "code": 6026,
       "name": "TokenTransferFailed",
       "msg": "Token transfer failed"
     },
     {
-      "code": 6031,
+      "code": 6027,
       "name": "InsufficientAccountBalance",
       "msg": "Insufficient account balance!"
     },
     {
-      "code": 6032,
+      "code": 6028,
       "name": "ForcedError",
       "msg": "Forced error"
     }
