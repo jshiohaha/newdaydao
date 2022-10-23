@@ -2,14 +2,13 @@ use crate::state::bid::Bid;
 
 use {
     crate::{
-        constant::AUCTION_FACTORY_SEED_LEN,
+        constant::{AUCTION_FACTORY_SEED_LEN, SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID},
         error::ErrorCode,
         state::auction::Auction,
         state::auction_factory::AuctionFactory,
         util::general::{
             assert_initialized, assert_owned_by, get_auction_account_address, get_current_timestamp,
         },
-        SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
     },
     anchor_lang::prelude::*,
     std::str::FromStr,

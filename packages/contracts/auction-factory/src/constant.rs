@@ -10,9 +10,10 @@ pub const AUX_SEED: &str = "aux";
 // auction factory
 pub const AUCTION_FACTORY_SEED_LEN: usize = 5;
 
-// metadata
-pub const AUCTION_CREATOR_SHARE: u8 = 0;
-pub const AUCTION_FACTORY_CREATOR_SHARE: u8 = 100;
-pub const SELLER_FEE_BASIS_POINTS: u16 = 750;
-pub const TOKEN_BASE_NAME: &str = "NEW DAY DAO";
-pub const TOKEN_SYMBOL: &str = "NDD";
+// [pending] remove
+// // metadata
+// pub const AUCTION_CREATOR_SHARE: u8 = 0;
+// pub const AUCTION_FACTORY_CREATOR_SHARE: u8 = 100;
+// pub const SELLER_FEE_BASIS_POINTS: u16 = 750;
+// pub const TOKEN_BASE_NAME: &str = "NEW DAY DAO";
+// pub const TOKEN_SYMBOL: &str = "NDD";
